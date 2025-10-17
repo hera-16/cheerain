@@ -59,17 +59,18 @@ npm run dev
 `.env.local`ファイルをプロジェクトルートに作成し、以下を設定してください：
 
 ```env
-# Firebase
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCZSHc4LdrxVAwddOfB7hkkQ2lKnTZhjpc
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cheerain-2a4b8.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=cheerain-2a4b8
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cheerain-2a4b8.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=380830578407
+NEXT_PUBLIC_FIREBASE_APP_ID=1:380830578407:web:0749b94e2299a7b08b9442
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-LL07BKLCZM
 
-# Polygon
-NEXT_PUBLIC_POLYGON_RPC_URL=your_polygon_rpc_url
-NEXT_PUBLIC_CONTRACT_ADDRESS=your_nft_contract_address
+# Polygon Network Configuration
+NEXT_PUBLIC_POLYGON_RPC_URL=https://polygon-rpc.com
+NEXT_PUBLIC_CONTRACT_ADDRESS=your_nft_contract_address_here
 ```
 
 ## 🚀 開発
