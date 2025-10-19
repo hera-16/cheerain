@@ -1,14 +1,27 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import NFTMintForm from '@/components/NFTMintForm';
 import NFTGallery from '@/components/NFTGallery';
 import Header from '@/components/Header';
+import { useAuth } from '@/contexts/AuthContext';
 
 type TabType = 'gallery' | 'mint';
 
 export default function NFTsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('gallery');
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  const handleMintTabClick = () => {
+    if (!user && !loading) {
+      // 未ログインの場合はログインページへリダイレクト
+      router.push('/login');
+    } else {
+      setActiveTab('mint');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
@@ -29,7 +42,7 @@ export default function NFTsPage() {
               🎴 NFT一覧
             </button>
             <button
-              onClick={() => setActiveTab('mint')}
+              onClick={handleMintTabClick}
               className={`px-8 py-4 font-black tracking-wider transition-all ${
                 activeTab === 'mint'
                   ? 'bg-red-700 text-yellow-300 border-b-4 border-yellow-400'
