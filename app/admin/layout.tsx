@@ -14,13 +14,23 @@ export default function AdminLayout({
   const router = useRouter();
 
   useEffect(() => {
+    console.log('🔐 [Admin Layout] 権限チェック:', {
+      loading,
+      user: user?.email,
+      isAdmin,
+    });
+
     if (!loading && !user) {
       // 未ログインの場合はログインページへ
+      console.log('🚫 [Admin Layout] 未ログイン - ログインページへリダイレクト');
       router.push('/login');
     } else if (!loading && user && !isAdmin) {
       // ログイン済みだがadmin権限がない場合はホームへ
+      console.log('⛔ [Admin Layout] 管理者権限なし - ホームへリダイレクト');
       router.push('/');
       alert('管理者権限が必要です');
+    } else if (!loading && user && isAdmin) {
+      console.log('✅ [Admin Layout] 管理者権限あり - 管理画面表示');
     }
   }, [user, isAdmin, loading, router]);
 

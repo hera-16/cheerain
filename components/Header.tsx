@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -39,6 +39,14 @@ export default function Header() {
           >
             マイページ
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-yellow-300 hover:from-purple-700 hover:to-purple-800 transition font-black tracking-wide border-2 border-yellow-400"
+            >
+              🔧 管理画面
+            </Link>
+          )}
           {user ? (
             <div className="flex items-center gap-2">
               <span className="px-4 py-2 text-yellow-300 font-bold text-sm">

@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [userId, setUserId] = useState('');
+  const [role, setRole] = useState<'user' | 'admin'>('user');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +38,7 @@ export default function LoginPage() {
         await setDoc(doc(db, 'users', userCredential.user.uid), {
           userId: userId.trim(),
           email: email,
-          role: 'user', // デフォルトはuser権限
+          role: role, // 選択されたroleを保存
           createdAt: new Date(),
         });
       } else {
@@ -89,22 +90,40 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {isSignUp && (
-              <div>
-                <label htmlFor="userId" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
-                  ユーザーID
-                </label>
-                <input
-                  id="userId"
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  required={isSignUp}
-                  className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
-                  placeholder="user123"
-                  minLength={3}
-                />
-                <p className="text-xs text-gray-600 mt-1 font-medium">3文字以上で入力してください</p>
-              </div>
+              <>
+                <div>
+                  <label htmlFor="userId" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
+                    ユーザーID
+                  </label>
+                  <input
+                    id="userId"
+                    type="text"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    required={isSignUp}
+                    className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
+                    placeholder="user123"
+                    minLength={3}
+                  />
+                  <p className="text-xs text-gray-600 mt-1 font-medium">3文字以上で入力してください</p>
+                </div>
+
+                <div>
+                  <label htmlFor="role" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
+                    権限
+                  </label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
+                    className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
+                  >
+                    <option value="user">一般ユーザー</option>
+                    <option value="admin">管理者</option>
+                  </select>
+                  <p className="text-xs text-gray-600 mt-1 font-medium">デバッグ用：管理者権限が必要な場合は選択してください</p>
+                </div>
+              </>
             )}
 
             <div>

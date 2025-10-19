@@ -43,22 +43,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDocRef = doc(db, 'users', user.uid);
           const userDocSnap = await getDoc(userDocRef);
 
+          console.log('🔍 [AuthContext] ユーザー認証状態:', {
+            uid: user.uid,
+            email: user.email,
+            docExists: userDocSnap.exists()
+          });
+
           if (userDocSnap.exists()) {
             const data = userDocSnap.data();
-            setUserData({
+            console.log('📄 [AuthContext] Firestoreデータ:', data);
+
+            const userData = {
               userId: data.userId,
               email: data.email,
               role: data.role || 'user', // デフォルトはuser
               createdAt: data.createdAt?.toDate() || new Date(),
-            });
+            };
+
+            console.log('✅ [AuthContext] 設定されたuserData:', userData);
+            console.log('👑 [AuthContext] isAdmin判定:', userData.role === 'admin');
+
+            setUserData(userData);
           } else {
+            console.warn('⚠️ [AuthContext] Firestoreにユーザードキュメントが存在しません');
             setUserData(null);
           }
         } catch (error) {
-          console.error('ユーザー情報の取得エラー:', error);
+          console.error('❌ [AuthContext] ユーザー情報の取得エラー:', error);
           setUserData(null);
         }
       } else {
+        console.log('🚪 [AuthContext] ユーザーがログアウトしました');
         setUserData(null);
       }
 

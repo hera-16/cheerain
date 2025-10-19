@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
+import QRCode from 'qrcode';
 
 interface NFT {
   id: string;
@@ -22,6 +23,9 @@ export default function MyPage() {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [profileImage, setProfileImage] = useState<string>('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeDataURL, setQrCodeDataURL] = useState<string>('');
+  const [monthlyNFTCount, setMonthlyNFTCount] = useState(0);
   const router = useRouter();
 
   // ユーザーの称号（NFT数に応じて決定）
@@ -55,6 +59,14 @@ export default function MyPage() {
     else if (nftCount >= 5) setUserTitle(titles[2]);
     else if (nftCount >= 1) setUserTitle(titles[1]);
     else setUserTitle(titles[0]);
+
+    // 今月のNFT発行数を計算
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthlyCount = nfts.filter(nft => {
+      return nft.createdAt >= thisMonthStart;
+    }).length;
+    setMonthlyNFTCount(monthlyCount);
   }, [nfts]);
 
   const fetchUserNFTs = async (userId: string) => {
@@ -122,6 +134,37 @@ export default function MyPage() {
     }
   };
 
+  const generateQRCode = async () => {
+    if (!user) return;
+
+    try {
+      // QRコードに含めるデータ
+      const qrData = JSON.stringify({
+        userId: userData?.userId || user.uid,
+        email: user.email,
+        monthlyNFTCount: monthlyNFTCount,
+        totalNFTCount: nfts.length,
+        timestamp: new Date().toISOString(),
+      });
+
+      // QRコードを生成
+      const qrDataURL = await QRCode.toDataURL(qrData, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#B91C1C', // 赤色
+          light: '#FEF3C7', // 黄色背景
+        },
+      });
+
+      setQrCodeDataURL(qrDataURL);
+      setShowQRCode(true);
+    } catch (error) {
+      console.error('QRコード生成エラー:', error);
+      alert('QRコードの生成に失敗しました');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
@@ -173,10 +216,14 @@ export default function MyPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-yellow-100 p-4 text-center border-4 border-yellow-400">
               <p className="text-sm text-gray-900 font-bold">保有NFT</p>
               <p className="text-3xl font-black text-red-700">{nfts.length}</p>
+            </div>
+            <div className="bg-green-100 p-4 text-center border-4 border-green-400">
+              <p className="text-sm text-gray-900 font-bold">今月のNFT</p>
+              <p className="text-3xl font-black text-green-700">{monthlyNFTCount}</p>
             </div>
             <div className="bg-yellow-100 p-4 text-center border-4 border-yellow-400">
               <p className="text-sm text-gray-900 font-bold">応援回数</p>
@@ -187,7 +234,46 @@ export default function MyPage() {
               <p className="text-3xl font-black text-red-700">{nfts.length * 100}</p>
             </div>
           </div>
+
+          {/* QRコード表示ボタン */}
+          <div className="mt-6 text-center">
+            <button
+              onClick={generateQRCode}
+              className="bg-gradient-to-r from-red-600 to-red-700 text-yellow-300 px-8 py-4 font-black tracking-wider hover:from-red-700 hover:to-red-800 transition border-4 border-yellow-400 shadow-lg"
+            >
+              📱 店舗割引用QRコードを表示
+            </button>
+          </div>
         </div>
+
+        {/* QRコードモーダル */}
+        {showQRCode && (
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={() => setShowQRCode(false)}>
+            <div className="bg-white p-8 max-w-md w-full border-4 border-red-700 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="text-center">
+                <h3 className="text-2xl font-black text-red-700 mb-4 tracking-wider">店舗割引用QRコード</h3>
+                <div className="bg-yellow-50 p-6 border-4 border-yellow-400 mb-4">
+                  <img src={qrCodeDataURL} alt="QR Code" className="mx-auto" />
+                </div>
+                <div className="bg-gray-100 p-4 border-2 border-gray-300 mb-4 text-left">
+                  <p className="text-sm font-bold text-gray-900 mb-2">📊 あなたの応援データ</p>
+                  <p className="text-xs text-gray-700 font-medium mb-1">ユーザーID: {userData?.userId}</p>
+                  <p className="text-xs text-gray-700 font-medium mb-1">今月のNFT発行数: <span className="text-green-700 font-black">{monthlyNFTCount}枚</span></p>
+                  <p className="text-xs text-gray-700 font-medium">総NFT保有数: <span className="text-red-700 font-black">{nfts.length}枚</span></p>
+                </div>
+                <p className="text-xs text-gray-600 font-medium mb-4">
+                  このQRコードを加盟店で提示すると、NFT保有数に応じた割引が受けられます
+                </p>
+                <button
+                  onClick={() => setShowQRCode(false)}
+                  className="w-full bg-gray-700 text-white py-3 font-black hover:bg-gray-800 transition tracking-wider"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* NFTコレクションセクション */}
         <div className="bg-white shadow-2xl p-6 border-4 border-red-700">

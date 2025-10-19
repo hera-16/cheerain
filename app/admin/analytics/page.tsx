@@ -16,8 +16,8 @@ interface PaymentMethodStats {
   total: number;
 }
 
-interface DailyStats {
-  date: string;
+interface MonthlyStats {
+  month: string;
   count: number;
   payment: number;
 }
@@ -26,7 +26,7 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
   const [paymentStats, setPaymentStats] = useState<PaymentMethodStats[]>([]);
-  const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
   const [totalStats, setTotalStats] = useState({
     totalNFTs: 0,
     totalPayment: 0,
@@ -85,30 +85,36 @@ export default function Analytics() {
 
       setPaymentStats(paymentStatsData);
 
-      // 日別統計（過去7日間）
-      const dailyMap = new Map<string, { count: number; payment: number }>();
+      // 月別統計（過去12ヶ月）
+      const monthlyMap = new Map<string, { count: number; payment: number }>();
       nfts.forEach(nft => {
         const createdAt = nft.createdAt?.toDate();
         if (createdAt) {
-          const dateStr = createdAt.toLocaleDateString('ja-JP');
-          const current = dailyMap.get(dateStr) || { count: 0, payment: 0 };
-          dailyMap.set(dateStr, {
+          const year = createdAt.getFullYear();
+          const month = createdAt.getMonth() + 1;
+          const monthStr = `${year}年${month}月`;
+          const current = monthlyMap.get(monthStr) || { count: 0, payment: 0 };
+          monthlyMap.set(monthStr, {
             count: current.count + 1,
             payment: current.payment + (nft.paymentAmount || 0),
           });
         }
       });
 
-      const dailyStatsData: DailyStats[] = Array.from(dailyMap.entries())
-        .map(([date, stats]) => ({
-          date,
+      const monthlyStatsData: MonthlyStats[] = Array.from(monthlyMap.entries())
+        .map(([month, stats]) => ({
+          month,
           count: stats.count,
           payment: stats.payment,
         }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-7); // 最新7日分
+        .sort((a, b) => {
+          const [aYear, aMonth] = a.month.match(/\d+/g)!.map(Number);
+          const [bYear, bMonth] = b.month.match(/\d+/g)!.map(Number);
+          return aYear === bYear ? aMonth - bMonth : aYear - bYear;
+        })
+        .slice(-12); // 最新12ヶ月分
 
-      setDailyStats(dailyStatsData);
+      setMonthlyStats(monthlyStatsData);
 
       // 総合統計
       const totalPayment = nfts.reduce((sum, nft) => sum + (nft.paymentAmount || 0), 0);
@@ -252,36 +258,80 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* 日別統計 */}
+      {/* 月別統計グラフ */}
       <div className="bg-gray-800 p-8 shadow-2xl border-4 border-red-600">
         <h2 className="text-3xl font-black text-yellow-300 mb-6 tracking-wider">
-          📅 日別NFT発行数（過去7日間）
+          📅 月別NFT発行数推移（過去12ヶ月）
         </h2>
-        <div className="space-y-4">
-          {dailyStats.map((daily) => (
-            <div
-              key={daily.date}
-              className="flex items-center justify-between bg-gray-700 p-4 border-2 border-gray-600"
-            >
-              <div className="flex-1">
-                <p className="font-black text-yellow-300 text-lg">{daily.date}</p>
-                <p className="text-sm text-gray-400 font-medium">
-                  {daily.count}件 / ¥{daily.payment.toLocaleString()}
+
+        {monthlyStats.length > 0 ? (
+          <div className="space-y-2">
+            {/* グラフ本体 */}
+            <div className="flex items-end justify-between gap-2 h-80 bg-gray-900 p-6 border-2 border-gray-700">
+              {monthlyStats.map((monthly, index) => {
+                const maxCount = Math.max(...monthlyStats.map(m => m.count), 1);
+                const heightPercent = (monthly.count / maxCount) * 100;
+
+                return (
+                  <div key={monthly.month} className="flex-1 flex flex-col items-center gap-2">
+                    {/* バーと数値 */}
+                    <div className="relative w-full flex flex-col items-center">
+                      <span className="text-yellow-300 font-black text-sm mb-1">{monthly.count}</span>
+                      <div
+                        className="w-full bg-gradient-to-t from-red-600 via-orange-500 to-yellow-400 transition-all duration-500 hover:opacity-80 cursor-pointer relative group"
+                        style={{
+                          height: `${Math.max(heightPercent, 5)}%`,
+                          minHeight: '20px',
+                        }}
+                        title={`${monthly.month}: ${monthly.count}件 / ¥${monthly.payment.toLocaleString()}`}
+                      >
+                        {/* ホバー時のツールチップ */}
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <div className="bg-gray-800 text-yellow-300 text-xs font-bold px-3 py-2 border-2 border-yellow-400 whitespace-nowrap">
+                            {monthly.month}<br/>
+                            {monthly.count}件<br/>
+                            ¥{monthly.payment.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 月ラベル */}
+                    <p className="text-xs text-gray-400 font-bold text-center transform -rotate-45 origin-top-left mt-2 whitespace-nowrap">
+                      {monthly.month}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 統計サマリー */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
+                <p className="text-sm text-gray-400 font-bold mb-1">総発行数</p>
+                <p className="text-2xl font-black text-yellow-300">
+                  {monthlyStats.reduce((sum, m) => sum + m.count, 0)}件
                 </p>
               </div>
-              <div className="flex-1">
-                <div
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 h-8 flex items-center justify-end pr-2"
-                  style={{
-                    width: `${Math.max(20, (daily.count / Math.max(...dailyStats.map(d => d.count))) * 100)}%`,
-                  }}
-                >
-                  <span className="text-yellow-300 font-black text-sm">{daily.count}</span>
-                </div>
+              <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
+                <p className="text-sm text-gray-400 font-bold mb-1">月平均</p>
+                <p className="text-2xl font-black text-yellow-300">
+                  {Math.round(monthlyStats.reduce((sum, m) => sum + m.count, 0) / monthlyStats.length)}件
+                </p>
+              </div>
+              <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
+                <p className="text-sm text-gray-400 font-bold mb-1">最高記録</p>
+                <p className="text-2xl font-black text-yellow-300">
+                  {Math.max(...monthlyStats.map(m => m.count))}件
+                </p>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-400 font-bold text-lg">まだデータがありません</p>
+          </div>
+        )}
       </div>
     </div>
   );

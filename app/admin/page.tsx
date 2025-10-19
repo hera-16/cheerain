@@ -9,7 +9,7 @@ interface Stats {
   totalUsers: number;
   totalPayments: number;
   venueAttendees: number;
-  todayNFTs: number;
+  thisMonthNFTs: number;
 }
 
 export default function AdminDashboard() {
@@ -18,7 +18,7 @@ export default function AdminDashboard() {
     totalUsers: 0,
     totalPayments: 0,
     venueAttendees: 0,
-    todayNFTs: 0,
+    thisMonthNFTs: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -38,12 +38,12 @@ export default function AdminDashboard() {
         // 会場参加者数
         const venueAttendees = nfts.filter(nft => nft.isVenueAttendee).length;
 
-        // 今日のNFT発行数
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayNFTs = nfts.filter(nft => {
+        // 今月のNFT発行数
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthNFTs = nfts.filter(nft => {
           const createdAt = nft.createdAt?.toDate();
-          return createdAt && createdAt >= today;
+          return createdAt && createdAt >= thisMonthStart;
         }).length;
 
         setStats({
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
           totalUsers: usersSnapshot.size,
           totalPayments,
           venueAttendees,
-          todayNFTs,
+          thisMonthNFTs,
         });
       } catch (error) {
         console.error('統計データの取得エラー:', error);
@@ -127,12 +127,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 本日のNFT */}
+        {/* 今月のNFT */}
         <div className="bg-gradient-to-br from-orange-600 to-orange-800 p-8 shadow-2xl border-4 border-yellow-400">
           <div className="text-center">
             <div className="text-5xl mb-3">📅</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">本日のNFT発行</p>
-            <p className="text-5xl font-black text-yellow-300">{stats.todayNFTs}</p>
+            <p className="text-sm text-yellow-200 font-bold mb-2">今月のNFT発行</p>
+            <p className="text-5xl font-black text-yellow-300">{stats.thisMonthNFTs}</p>
           </div>
         </div>
 

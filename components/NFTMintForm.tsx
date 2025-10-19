@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
+import { Player } from '@/types/player';
 
 type PaymentMethod = 'credit' | 'paypay' | 'aupay';
 
@@ -24,6 +25,37 @@ export default function NFTMintForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit');
   const [venueId, setVenueId] = useState<string>('');
   const [selectedDefaultImage, setSelectedDefaultImage] = useState<number | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+
+  // 選手データを取得
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        // インデックス不要なシンプルなクエリ
+        const snapshot = await getDocs(collection(db, 'players'));
+        const playersList = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date(),
+          })) as Player[];
+
+        // クライアント側でフィルタとソート
+        const activePlayers = playersList
+          .filter(p => p.isActive)
+          .sort((a, b) => a.number - b.number);
+
+        setPlayers(activePlayers);
+      } catch (error) {
+        console.error('選手データの取得エラー:', error);
+      } finally {
+        setLoadingPlayers(false);
+      }
+    };
+
+    fetchPlayers();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -182,17 +214,55 @@ export default function NFTMintForm() {
 
         <div>
           <label htmlFor="playerName" className="block text-sm font-black mb-2 text-red-700">
-            応援する選手名 *
+            応援する選手 *
           </label>
-          <input
-            type="text"
-            id="playerName"
-            value={formData.playerName}
-            onChange={(e) => setFormData({ ...formData, playerName: e.target.value })}
-            className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-gray-900"
-            placeholder="例: 山田太郎"
-            required
-          />
+          {loadingPlayers ? (
+            <div className="w-full px-4 py-3 border-2 border-gray-300 bg-gray-100 font-bold text-gray-500 text-center">
+              選手データを読み込み中...
+            </div>
+          ) : (
+            <select
+              id="playerName"
+              value={formData.playerName}
+              onChange={(e) => setFormData({ ...formData, playerName: e.target.value })}
+              className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-gray-900"
+              required
+            >
+              <option value="">選手を選択してください</option>
+              <option value="チームを応援" className="font-black text-red-700">⚽ チームを応援</option>
+              <optgroup label="🥅 ゴールキーパー (GK)">
+                {players.filter(p => p.position === 'GK').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🛡️ ディフェンダー (DF)">
+                {players.filter(p => p.position === 'DF').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="⚡ ミッドフィルダー (MF)">
+                {players.filter(p => p.position === 'MF').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="⚔️ フォワード (FW)">
+                {players.filter(p => p.position === 'FW').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          )}
+          <p className="text-xs text-gray-700 mt-1 font-medium">
+            ⚽ 一番上の「チームを応援」を選択すると、チーム全体への応援になります
+          </p>
         </div>
 
         <div>
