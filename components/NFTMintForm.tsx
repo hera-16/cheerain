@@ -29,12 +29,20 @@ export default function NFTMintForm() {
     const file = e.target.files?.[0];
     if (file) {
       setFormData({ ...formData, image: file });
+      setSelectedDefaultImage(null); // カスタム画像選択時はデフォルト画像をクリア
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleDefaultImageSelect = (imageId: number) => {
+    setSelectedDefaultImage(imageId);
+    const dataURL = generateDefaultImageDataURL(imageId);
+    setPreview(dataURL);
+    setFormData({ ...formData, image: null }); // カスタム画像をクリア
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +100,7 @@ export default function NFTMintForm() {
       setPaymentAmount('');
       setPaymentMethod('credit');
       setVenueId('');
+      setSelectedDefaultImage(null);
     } catch (error) {
       console.error('Error minting NFT:', error);
       alert('NFTの発行に失敗しました');
@@ -209,18 +218,52 @@ export default function NFTMintForm() {
         </div>
 
         <div>
-          <label htmlFor="image" className="block text-sm font-black mb-2 text-red-700">
+          <label className="block text-sm font-black mb-2 text-red-700">
             画像（オプション）
           </label>
-          <input
-            type="file"
-            id="image"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none"
-          />
+
+          {/* デフォルト画像選択 */}
+          <div className="mb-4">
+            <p className="text-xs font-bold text-gray-700 mb-2">⚽ デフォルト画像から選択:</p>
+            <div className="grid grid-cols-5 gap-2">
+              {defaultImages.map((img) => (
+                <button
+                  key={img.id}
+                  type="button"
+                  onClick={() => handleDefaultImageSelect(img.id)}
+                  className={`aspect-square border-4 transition-all hover:scale-105 ${
+                    selectedDefaultImage === img.id
+                      ? 'border-red-700 shadow-lg'
+                      : 'border-gray-300 hover:border-yellow-400'
+                  }`}
+                  title={img.name}
+                >
+                  <img
+                    src={generateDefaultImageDataURL(img.id)}
+                    alt={img.name}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* カスタム画像アップロード */}
+          <div>
+            <p className="text-xs font-bold text-gray-700 mb-2">📁 または独自の画像をアップロード:</p>
+            <input
+              type="file"
+              id="image"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none"
+            />
+          </div>
+
+          {/* プレビュー */}
           {preview && (
             <div className="mt-4">
+              <p className="text-xs font-bold text-gray-700 mb-2">プレビュー:</p>
               <img
                 src={preview}
                 alt="Preview"
