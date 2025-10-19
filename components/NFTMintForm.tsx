@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function NFTMintForm() {
@@ -41,12 +42,24 @@ export default function NFTMintForm() {
     setIsLoading(true);
 
     try {
+      let imageUrl = '';
+
+      // 画像がある場合はFirebase Storageにアップロード
+      if (formData.image) {
+        const timestamp = Date.now();
+        const fileName = `nfts/${user.uid}/${timestamp}_${formData.image.name}`;
+        const storageRef = ref(storage, fileName);
+
+        await uploadBytes(storageRef, formData.image);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
       // Firestoreに応援メッセージNFTデータを保存
       await addDoc(collection(db, 'nfts'), {
         title: formData.title,
         message: formData.message,
         playerName: formData.playerName,
-        imageUrl: preview || '',
+        imageUrl: imageUrl,
         creatorAddress: user.email,
         creatorUid: user.uid,
         createdAt: serverTimestamp(),
