@@ -37,6 +37,7 @@ export default function LoginPage() {
         await setDoc(doc(db, 'users', userCredential.user.uid), {
           userId: userId.trim(),
           email: email,
+          role: 'user', // デフォルトはuser権限
           createdAt: new Date(),
         });
       } else {
