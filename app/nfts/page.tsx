@@ -15,12 +15,19 @@ export default function NFTsPage() {
   const router = useRouter();
 
   const handleMintTabClick = () => {
-    if (!user && !loading) {
+    if (loading) {
+      // ローディング中は何もしない
+      return;
+    }
+
+    if (!user) {
       // 未ログインの場合はログインページへリダイレクト
       router.push('/login');
-    } else {
-      setActiveTab('mint');
+      return;
     }
+
+    // ログイン済みの場合はタブを切り替え
+    setActiveTab('mint');
   };
 
   return (
