@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NFTMintForm from '@/components/NFTMintForm';
 import NFTGallery from '@/components/NFTGallery';
@@ -14,21 +14,27 @@ export default function NFTsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  const handleMintTabClick = () => {
-    if (loading) {
-      // ローディング中は何もしない
-      return;
-    }
-
-    if (!user) {
+  useEffect(() => {
+    if (!loading && !user) {
       // 未ログインの場合はログインページへリダイレクト
       router.push('/login');
-      return;
     }
+  }, [user, loading, router]);
 
-    // ログイン済みの場合はタブを切り替え
-    setActiveTab('mint');
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⏳</div>
+          <p className="text-xl font-black text-red-700">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // リダイレクト中
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
@@ -43,17 +49,17 @@ export default function NFTsPage() {
               className={`px-8 py-4 font-black tracking-wider transition-all ${
                 activeTab === 'gallery'
                   ? 'bg-red-700 text-yellow-300 border-b-4 border-yellow-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
               }`}
             >
               🎴 NFT一覧
             </button>
             <button
-              onClick={handleMintTabClick}
+              onClick={() => setActiveTab('mint')}
               className={`px-8 py-4 font-black tracking-wider transition-all ${
                 activeTab === 'mint'
                   ? 'bg-red-700 text-yellow-300 border-b-4 border-yellow-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
               }`}
             >
               💬 NFT発行
@@ -69,7 +75,7 @@ export default function NFTsPage() {
 
       {/* フッター */}
       <footer className="bg-red-700 mt-24 py-8 border-t-4 border-yellow-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-yellow-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-yellow-300">
           <p className="font-bold">© 2025 CHEERAIN. Built with ❤️ by Team hera-16</p>
         </div>
       </footer>

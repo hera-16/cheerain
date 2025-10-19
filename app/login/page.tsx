@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [userId, setUserId] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,22 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // ユーザーIDの重複チェックは省略（後で必要なら追加）
+        if (!userId.trim()) {
+          setError('ユーザーIDを入力してください');
+          setLoading(false);
+          return;
+        }
+
+        // Firebase Authenticationでアカウント作成
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+        // Firestoreにユーザー情報を保存
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          userId: userId.trim(),
+          email: email,
+          createdAt: new Date(),
+        });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -70,6 +87,25 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isSignUp && (
+              <div>
+                <label htmlFor="userId" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
+                  ユーザーID
+                </label>
+                <input
+                  id="userId"
+                  type="text"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  required={isSignUp}
+                  className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
+                  placeholder="user123"
+                  minLength={3}
+                />
+                <p className="text-xs text-gray-600 mt-1 font-medium">3文字以上で入力してください</p>
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
                 メールアドレス
@@ -80,7 +116,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium"
+                className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
                 placeholder="example@email.com"
               />
             </div>
@@ -95,7 +131,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium"
+                className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
                 placeholder="••••••••"
                 minLength={6}
               />

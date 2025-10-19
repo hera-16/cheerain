@@ -80,7 +80,7 @@ export default function Home() {
 
       {/* フッター */}
       <footer className="bg-red-700 mt-24 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-yellow-200 font-medium">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-yellow-300 font-medium">
           <p>© 2025 Cheerain. Built with ❤️ by Team hera-16</p>
         </div>
       </footer>
