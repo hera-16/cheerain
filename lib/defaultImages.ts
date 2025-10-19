@@ -85,7 +85,7 @@ export const defaultImages: DefaultImage[] = [
 ];
 
 /**
- * SVG形式でデフォルト画像を生成
+ * SVG形式でデフォルト画像を生成（リアルで格好良いデザイン）
  */
 export function generateDefaultImageSVG(imageId: number): string {
   const image = defaultImages.find(img => img.id === imageId);
@@ -93,35 +93,125 @@ export function generateDefaultImageSVG(imageId: number): string {
     return generateDefaultImageSVG(1); // フォールバック
   }
 
+  const darkColor = adjustBrightness(image.bgColor, -30);
+  const lightColor = adjustBrightness(image.bgColor, 20);
+  const shadowColor = adjustBrightness(image.bgColor, -50);
+
   const svg = `
     <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="grad${imageId}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${image.bgColor};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${adjustBrightness(image.bgColor, -20)};stop-opacity:1" />
+        <!-- メイングラデーション -->
+        <linearGradient id="mainGrad${imageId}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${lightColor};stop-opacity:1" />
+          <stop offset="50%" style="stop-color:${image.bgColor};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${darkColor};stop-opacity:1" />
         </linearGradient>
+
+        <!-- ハイライトグラデーション -->
+        <radialGradient id="highlight${imageId}" cx="30%" cy="30%">
+          <stop offset="0%" style="stop-color:${image.textColor};stop-opacity:0.4" />
+          <stop offset="70%" style="stop-color:${image.textColor};stop-opacity:0.1" />
+          <stop offset="100%" style="stop-color:${image.textColor};stop-opacity:0" />
+        </radialGradient>
+
+        <!-- シャドウグラデーション -->
+        <radialGradient id="shadow${imageId}" cx="70%" cy="70%">
+          <stop offset="0%" style="stop-color:${shadowColor};stop-opacity:0" />
+          <stop offset="50%" style="stop-color:${shadowColor};stop-opacity:0.3" />
+          <stop offset="100%" style="stop-color:${shadowColor};stop-opacity:0.6" />
+        </radialGradient>
+
+        <!-- テキストシャドウフィルター -->
+        <filter id="textShadow${imageId}">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+          <feOffset dx="0" dy="2" result="offsetblur"/>
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.5"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <!-- 3D効果のためのフィルター -->
+        <filter id="3dEffect${imageId}">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+          <feOffset dx="0" dy="4" result="offsetblur"/>
+          <feFlood flood-color="${shadowColor}" flood-opacity="0.6"/>
+          <feComposite in2="offsetblur" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       </defs>
 
-      <!-- 背景 -->
-      <rect width="400" height="400" fill="url(#grad${imageId})"/>
+      <!-- 背景グラデーション -->
+      <rect width="400" height="400" fill="url(#mainGrad${imageId})"/>
 
-      <!-- パターン装飾 -->
-      <circle cx="50" cy="50" r="80" fill="${image.textColor}" opacity="0.1"/>
-      <circle cx="350" cy="350" r="100" fill="${image.textColor}" opacity="0.1"/>
-      <circle cx="320" cy="80" r="60" fill="${image.textColor}" opacity="0.08"/>
+      <!-- シャドウオーバーレイ -->
+      <rect width="400" height="400" fill="url(#shadow${imageId})"/>
 
-      <!-- 絵文字 -->
-      <text x="200" y="220" font-size="120" text-anchor="middle" dominant-baseline="middle">
-        ${image.emoji}
-      </text>
+      <!-- ハイライトオーバーレイ -->
+      <rect width="400" height="400" fill="url(#highlight${imageId})"/>
 
-      <!-- テキスト -->
-      <text x="200" y="320" font-size="24" font-weight="bold" text-anchor="middle" fill="${image.textColor}">
-        ${image.name}
-      </text>
+      <!-- 幾何学パターン装飾 -->
+      <g opacity="0.15">
+        <circle cx="350" cy="50" r="120" fill="${image.textColor}"/>
+        <circle cx="50" cy="350" r="140" fill="${image.textColor}"/>
+        <polygon points="200,50 250,150 150,150" fill="${image.textColor}"/>
+        <rect x="280" y="280" width="80" height="80" fill="${image.textColor}" transform="rotate(45 320 320)"/>
+      </g>
 
-      <!-- ボーダー -->
-      <rect x="10" y="10" width="380" height="380" fill="none" stroke="${image.textColor}" stroke-width="4" opacity="0.3"/>
+      <!-- 六角形の背景枠 -->
+      <g filter="url(#3dEffect${imageId})">
+        <polygon
+          points="200,60 290,110 290,210 200,260 110,210 110,110"
+          fill="none"
+          stroke="${image.textColor}"
+          stroke-width="6"
+          opacity="0.4"
+        />
+      </g>
+
+      <!-- 絵文字アイコン（3D効果付き） -->
+      <g filter="url(#3dEffect${imageId})">
+        <text x="200" y="170" font-size="140" text-anchor="middle" dominant-baseline="middle" opacity="0.95">
+          ${image.emoji}
+        </text>
+      </g>
+
+      <!-- テキストラベル（影付き） -->
+      <g filter="url(#textShadow${imageId})">
+        <text
+          x="200"
+          y="330"
+          font-size="28"
+          font-weight="900"
+          text-anchor="middle"
+          fill="${image.textColor}"
+          letter-spacing="2"
+          style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        >
+          ${image.name}
+        </text>
+      </g>
+
+      <!-- 装飾的なボーダーライン -->
+      <rect x="15" y="15" width="370" height="370" fill="none" stroke="${image.textColor}" stroke-width="3" opacity="0.5" rx="8"/>
+      <rect x="8" y="8" width="384" height="384" fill="none" stroke="${image.textColor}" stroke-width="2" opacity="0.3" rx="12"/>
+
+      <!-- 下部の装飾ライン -->
+      <line x1="80" y1="300" x2="320" y2="300" stroke="${image.textColor}" stroke-width="2" opacity="0.3"/>
+
+      <!-- コーナー装飾 -->
+      <g opacity="0.4" stroke="${image.textColor}" stroke-width="3" fill="none">
+        <polyline points="30,50 30,30 50,30"/>
+        <polyline points="350,50 350,30 370,30"/>
+        <polyline points="30,350 30,370 50,370"/>
+        <polyline points="350,350 350,370 370,370"/>
+      </g>
     </svg>
   `.trim();
 
