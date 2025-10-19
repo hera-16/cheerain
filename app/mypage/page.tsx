@@ -3,22 +3,22 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
+import Header from '@/components/Header';
 
 interface NFT {
   id: string;
   title: string;
-  player: string;
+  playerName: string;
   message: string;
-  date: string;
+  createdAt: any;
   imageUrl?: string;
 }
 
 export default function MyPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, logout } = useAuth();
   const [nfts, setNfts] = useState<NFT[]>([]);
   const router = useRouter();
 
@@ -27,16 +27,10 @@ export default function MyPage() {
   const [userTitle, setUserTitle] = useState(titles[0]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        await fetchUserNFTs(currentUser.uid);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+    if (user) {
+      fetchUserNFTs(user.uid);
+    }
+  }, [user]);
 
   useEffect(() => {
     // NFTの数に応じて称号を決定
@@ -49,42 +43,31 @@ export default function MyPage() {
 
   const fetchUserNFTs = async (userId: string) => {
     try {
-      // Firestoreから過去のNFTを取得
+      // Firestoreから自分が発行したNFTを取得
       const nftsRef = collection(db, 'nfts');
-      const q = query(nftsRef, where('userId', '==', userId));
+      const q = query(
+        nftsRef,
+        where('creatorUid', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
       const querySnapshot = await getDocs(q);
-      
-      const fetchedNFTs: NFT[] = [];
-      querySnapshot.forEach((doc) => {
-        fetchedNFTs.push({ id: doc.id, ...doc.data() } as NFT);
-      });
-      
+
+      const fetchedNFTs: NFT[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      })) as NFT[];
+
       setNfts(fetchedNFTs);
     } catch (error) {
       console.error('NFT取得エラー:', error);
-      // デモ用のダミーデータ
-      setNfts([
-        {
-          id: '1',
-          title: '応援NFT #001',
-          player: '選手A',
-          message: '次の試合も頑張ってください！',
-          date: '2025-10-15',
-        },
-        {
-          id: '2',
-          title: '応援NFT #002',
-          player: '選手B',
-          message: '素晴らしいプレーでした！',
-          date: '2025-10-10',
-        },
-      ]);
+      setNfts([]);
     }
   };
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await logout();
       router.push('/login');
     } catch (error) {
       console.error('ログアウトエラー:', error);
@@ -103,35 +86,7 @@ export default function MyPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
-        {/* ヘッダー */}
-        <header className="bg-red-700 shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <Link href="/">
-              <h1 className="text-2xl font-bold text-yellow-300 cursor-pointer hover:text-yellow-200 transition tracking-wider">CHEERAIN</h1>
-            </Link>
-            
-            <nav className="flex items-center gap-2">
-              <Link
-                href="/nfts"
-                className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
-              >
-                NFT一覧
-              </Link>
-              <Link
-                href="/mypage"
-                className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
-              >
-                マイページ
-              </Link>
-              <Link
-                href="/login"
-                className="px-4 py-2 bg-yellow-400 text-red-900 hover:bg-yellow-300 transition font-black border-2 border-red-700 tracking-wide"
-              >
-                ログイン
-              </Link>
-            </nav>
-          </div>
-        </header>
+        <Header />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="max-w-2xl mx-auto text-center">
@@ -190,35 +145,7 @@ export default function MyPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
-      {/* ヘッダー */}
-      <header className="bg-red-700 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Link href="/">
-            <h1 className="text-2xl font-bold text-yellow-300 cursor-pointer hover:text-yellow-200 transition tracking-wider">CHEERAIN</h1>
-          </Link>
-          
-          <nav className="flex items-center gap-2">
-            <Link
-              href="/nfts"
-              className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
-            >
-              NFT一覧
-            </Link>
-            <Link
-              href="/mypage"
-              className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
-            >
-              マイページ
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-bold text-yellow-100 hover:text-yellow-300 transition tracking-wide"
-            >
-              ログアウト
-            </button>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ユーザー情報セクション */}
@@ -276,9 +203,9 @@ export default function MyPage() {
                   </div>
                   <div className="p-4 bg-white">
                     <h4 className="font-black text-red-700 mb-2 tracking-wide">{nft.title}</h4>
-                    <p className="text-sm text-gray-900 mb-1 font-bold">選手: {nft.player}</p>
+                    <p className="text-sm text-gray-900 mb-1 font-bold">選手: {nft.playerName}</p>
                     <p className="text-sm text-gray-800 mb-2 line-clamp-2 font-bold">{nft.message}</p>
-                    <p className="text-xs text-gray-700 font-bold">{nft.date}</p>
+                    <p className="text-xs text-gray-700 font-bold">{nft.createdAt.toLocaleDateString('ja-JP')}</p>
                   </div>
                 </div>
               ))}
