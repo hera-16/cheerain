@@ -8,12 +8,14 @@ import { doc, getDoc } from 'firebase/firestore';
 interface UserData {
   userId: string;
   email: string;
+  role: 'user' | 'admin';
   createdAt: Date;
 }
 
 interface AuthContextType {
   user: User | null;
   userData: UserData | null;
+  isAdmin: boolean;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -21,6 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   userData: null,
+  isAdmin: false,
   loading: true,
   logout: async () => {},
 });
@@ -45,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUserData({
               userId: data.userId,
               email: data.email,
+              role: data.role || 'user', // デフォルトはuser
               createdAt: data.createdAt?.toDate() || new Date(),
             });
           } else {
@@ -73,8 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isAdmin = userData?.role === 'admin';
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, logout }}>
+    <AuthContext.Provider value={{ user, userData, isAdmin, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );
