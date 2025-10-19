@@ -1,102 +1,88 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-red-50 to-yellow-100">
+      {/* ヘッダー */}
+      <header className="bg-red-700 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <Link href="/">
+            <h1 className="text-2xl font-bold text-yellow-300 cursor-pointer hover:text-yellow-200 transition tracking-wider">CHEERAIN</h1>
+          </Link>
+          
+          <nav className="flex items-center gap-2">
+            <Link
+              href="/nfts"
+              className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
+            >
+              NFT一覧
+            </Link>
+            <Link
+              href="/mypage"
+              className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
+            >
+              マイページ
+            </Link>
+            <Link
+              href="/login"
+              className="px-6 py-2 bg-yellow-400 text-red-900 hover:bg-yellow-300 transition font-bold tracking-wide shadow-md"
+            >
+              ログイン
+            </Link>
+          </nav>
+        </div>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      {/* メインコンテンツ */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-16">
+          <h2 className="text-5xl font-black text-gray-900 mb-6 tracking-tight">
+            ファンの声を選手に届ける<br />
+            <span className="text-red-700">新しい応援のカタチ</span>
+          </h2>
+          <p className="text-xl text-gray-800 mb-8 max-w-2xl mx-auto font-medium">
+            ギラヴァンツ北九州の選手に応援メッセージを送ると、<br />
+            それがNFTカードとして永久保存される革新的な応援アプリです。
+          </p>
+          <Link
+            href="/login"
+            className="inline-block px-10 py-4 bg-red-700 text-yellow-300 hover:bg-red-800 transition font-black text-lg shadow-xl border-4 border-yellow-400 tracking-wider"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            今すぐ始める
+          </Link>
+        </div>
+
+        {/* 機能紹介 */}
+        <div className="grid md:grid-cols-3 gap-8 mt-16">
+          <div className="bg-white shadow-xl p-8 text-center border-4 border-red-700">
+            <div className="text-5xl mb-4">💬</div>
+            <h3 className="text-xl font-black text-red-700 mb-3 tracking-wide">応援メッセージ</h3>
+            <p className="text-gray-700 font-medium">
+              選手への応援コメントを投稿して、モチベーション向上に貢献
+            </p>
+          </div>
+          <div className="bg-white shadow-xl p-8 text-center border-4 border-yellow-400">
+            <div className="text-5xl mb-4">🎴</div>
+            <h3 className="text-xl font-black text-gray-900 mb-3 tracking-wide">NFTコレクション</h3>
+            <p className="text-gray-700 font-medium">
+              応援メッセージがNFTとしてブロックチェーン上に永久記録
+            </p>
+          </div>
+          <div className="bg-white shadow-xl p-8 text-center border-4 border-red-700">
+            <div className="text-5xl mb-4">🎁</div>
+            <h3 className="text-xl font-black text-red-700 mb-3 tracking-wide">限定特典</h3>
+            <p className="text-gray-700 font-medium">
+              NFT保有者限定でグッズ割引や店舗優待などの特典を提供
+            </p>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* フッター */}
+      <footer className="bg-red-700 mt-24 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-yellow-200 font-medium">
+          <p>© 2025 Cheerain. Built with ❤️ by Team hera-16</p>
+        </div>
       </footer>
     </div>
   );
