@@ -67,15 +67,23 @@ export default function NFTMintForm() {
     setIsLoading(true);
 
     try {
-      // 画像がある場合はBase64エンコード（既にpreviewに格納されている）
-      const imageBase64 = preview || '';
+      // 画像の取得: デフォルト画像または自前の画像
+      let imageBase64 = '';
+
+      if (selectedDefaultImage !== null) {
+        // デフォルト画像が選択されている場合
+        imageBase64 = generateDefaultImageDataURL(selectedDefaultImage);
+      } else if (preview) {
+        // 自前の画像がアップロードされている場合
+        imageBase64 = preview;
+      }
 
       // Firestoreに応援メッセージNFTデータを保存
       await addDoc(collection(db, 'nfts'), {
         title: formData.title,
         message: formData.message,
         playerName: formData.playerName,
-        imageUrl: imageBase64, // Base64エンコードされた画像データ
+        imageUrl: imageBase64, // Base64エンコードされた画像データ（デフォルトまたは自前）
         creatorAddress: user.email,
         creatorUid: user.uid,
         creatorUserId: userData?.userId || '',
