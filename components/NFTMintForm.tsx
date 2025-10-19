@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function NFTMintForm() {
+  const { user, loading } = useAuth();
   const [formData, setFormData] = useState<NFTFormData>({
     title: '',
     message: '',
@@ -29,6 +32,12 @@ export default function NFTMintForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      alert('NFTを発行するにはログインが必要です');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -38,6 +47,8 @@ export default function NFTMintForm() {
         message: formData.message,
         playerName: formData.playerName,
         imageUrl: preview || '',
+        creatorAddress: user.email,
+        creatorUid: user.uid,
         createdAt: serverTimestamp(),
       });
 
@@ -58,6 +69,43 @@ export default function NFTMintForm() {
       setIsLoading(false);
     }
   };
+
+  // ローディング中
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center">
+        <div className="text-6xl mb-4">⏳</div>
+        <p className="text-xl font-black text-red-700">読み込み中...</p>
+      </div>
+    );
+  }
+
+  // 未ログイン時
+  if (!user) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-4">🔒</div>
+          <h2 className="text-4xl font-black text-red-700 mb-4 tracking-wider">ログインが必要です</h2>
+          <p className="text-gray-800 font-bold mb-8">
+            NFTを発行するには、ログインまたはアカウント作成が必要です
+          </p>
+        </div>
+
+        <div className="bg-white shadow-2xl p-8 border-4 border-red-700 text-center">
+          <p className="text-gray-700 font-bold mb-6">
+            ログインすると、選手への応援メッセージをNFTとして永久保存できます
+          </p>
+          <Link
+            href="/login"
+            className="inline-block bg-red-700 hover:bg-red-800 text-yellow-300 font-black py-4 px-8 transition-colors border-4 border-yellow-400 tracking-wider text-lg"
+          >
+            ログイン / アカウント作成
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6">
