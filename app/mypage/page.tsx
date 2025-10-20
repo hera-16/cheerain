@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+// import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,8 +14,15 @@ interface NFT {
   title: string;
   playerName: string;
   message: string;
-  createdAt: any;
+  createdAt: Date;
   imageUrl?: string;
+  isVenueAttendee?: boolean;
+}
+
+interface UserData {
+  profileImage?: string;
+  email?: string;
+  role?: string;
 }
 
 export default function MyPage() {
@@ -47,8 +54,9 @@ export default function MyPage() {
 
   useEffect(() => {
     // userDataからプロフィール画像を読み込む
-    if (userData && (userData as any).profileImage) {
-      setProfileImage((userData as any).profileImage);
+    const userDataTyped = userData as UserData;
+    if (userData && userDataTyped.profileImage) {
+      setProfileImage(userDataTyped.profileImage);
     }
   }, [userData]);
 
@@ -67,7 +75,7 @@ export default function MyPage() {
       return nft.createdAt >= thisMonthStart;
     }).length;
     setMonthlyNFTCount(monthlyCount);
-  }, [nfts]);
+  }, [nfts, titles]);
 
   const fetchUserNFTs = async (userId: string) => {
     try {
@@ -301,7 +309,7 @@ export default function MyPage() {
                   <div className="p-4 bg-white">
                     <div className="mb-2 flex items-center gap-2 flex-wrap">
                       <h4 className="font-black text-red-700 tracking-wide">{nft.title}</h4>
-                      {(nft as any).isVenueAttendee && (
+                      {nft.isVenueAttendee && (
                         <span className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 font-black text-xs border-2 border-orange-600">
                           🏟️ 現地
                         </span>

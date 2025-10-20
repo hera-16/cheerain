@@ -45,8 +45,8 @@ export default function LoginPage() {
         await signInWithEmailAndPassword(auth, email, password);
       }
       router.push('/mypage');
-    } catch (err: any) {
-      setError(err.message || 'エラーが発生しました');
+    } catch (err) {
+      setError((err as Error).message || 'エラーが発生しました');
     } finally {
       setLoading(false);
     }

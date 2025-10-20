@@ -43,7 +43,7 @@ export default function NFTGallery() {
       setFilteredNfts(nfts);
     } else {
       const filtered = nfts.filter((nft) =>
-        (nft as any).creatorUserId?.toLowerCase().includes(searchUserId.toLowerCase())
+        nft.creatorUserId?.toLowerCase().includes(searchUserId.toLowerCase())
       );
       setFilteredNfts(filtered);
     }
@@ -129,7 +129,7 @@ export default function NFTGallery() {
                 <span className="inline-block bg-red-700 text-yellow-300 px-3 py-1 font-black text-sm border-2 border-yellow-400">
                   {nft.playerName}
                 </span>
-                {(nft as any).isVenueAttendee && (
+                {nft.isVenueAttendee && (
                   <span className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 font-black text-xs border-2 border-orange-600">
                     🏟️ 現地参加
                   </span>
@@ -146,8 +146,8 @@ export default function NFTGallery() {
 
               <div className="flex justify-between items-center text-sm text-gray-700 font-bold">
                 <span>発行日: {nft.createdAt.toLocaleDateString('ja-JP')}</span>
-                {(nft as any).creatorUserId && (
-                  <span>👤 {(nft as any).creatorUserId}</span>
+                {nft.creatorUserId && (
+                  <span>👤 {nft.creatorUserId}</span>
                 )}
               </div>
             </div>
