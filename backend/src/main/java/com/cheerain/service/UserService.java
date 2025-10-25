@@ -55,7 +55,7 @@ public class UserService {
 
     @Transactional
     public UserResponse updateProfileImage(String userId, String profileImageUrl) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("ユーザーが見つかりません"));
 
         user.setProfileImage(profileImageUrl);
