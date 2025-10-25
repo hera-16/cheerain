@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { NFTFormData } from '@/types/nft';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
-import { Player } from '@/types/player';
 import { api } from '@/lib/api';
 import { checkTextContent, checkImageBasic } from '@/lib/contentModeration';
 import { getContractConfig } from '@/lib/contract';
@@ -20,10 +19,11 @@ export default function BlockchainNFTMintForm() {
     hash,
   });
 
+  const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState<NFTFormData>({
     title: '',
     message: '',
-    playerName: '',
+    playerName: 'チームを応援',
     image: null,
   });
   const [preview, setPreview] = useState<string>('');
@@ -31,28 +31,10 @@ export default function BlockchainNFTMintForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit');
   const [venueId, setVenueId] = useState<string>('');
   const [selectedDefaultImage, setSelectedDefaultImage] = useState<number | null>(null);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [loadingPlayers, setLoadingPlayers] = useState(true);
 
-  // 選手データを取得
+  // クライアントサイドでのみレンダリングするためのフラグ
   useEffect(() => {
-    const fetchPlayers = async () => {
-      try {
-        const response = await api.get<Player[]>('/players');
-        if (response.success && response.data) {
-          const activePlayers = response.data
-            .filter(p => p.isActive)
-            .sort((a, b) => a.number - b.number);
-          setPlayers(activePlayers);
-        }
-      } catch (error) {
-        console.error('選手データの取得エラー:', error);
-      } finally {
-        setLoadingPlayers(false);
-      }
-    };
-
-    fetchPlayers();
+    setMounted(true);
   }, []);
 
   // トランザクション成功時の処理
@@ -152,7 +134,8 @@ export default function BlockchainNFTMintForm() {
       let imageUrl = '';
 
       if (selectedDefaultImage !== null) {
-        imageUrl = generateDefaultImageDataURL(selectedDefaultImage);
+        // デフォルト画像の場合は短い識別子を使用（ガスコスト削減）
+        imageUrl = `default:${selectedDefaultImage}`;
       } else if (formData.image) {
         // 画像をアップロード
         const formDataObj = new FormData();
@@ -161,18 +144,26 @@ export default function BlockchainNFTMintForm() {
 
         const uploadResponse = await api.uploadFile('/upload/image', formDataObj);
         if (uploadResponse.success && uploadResponse.data) {
-          imageUrl = uploadResponse.data.url;
+          // ファイル名のみを抽出してガスコスト削減
+          // 例: "nfts/abc.jpg" → "nft:abc.jpg"
+          const fullPath = uploadResponse.data.url.replace(/^\/+/, '');
+          const fileName = fullPath.split('/').pop() || fullPath;
+          imageUrl = `nft:${fileName}`;
         } else {
           throw new Error('画像のアップロードに失敗しました');
         }
+      } else {
+        alert('❌ デフォルト画像を選択するか、カスタム画像をアップロードしてください');
+        return;
       }
 
       // ブロックチェーンNFTを発行
       writeContract({
-        ...contractConfig,
+        address: contractConfig.address,
+        abi: contractConfig.abi,
         functionName: 'mintNFT',
         args: [
-          address, // to
+          address as `0x${string}`, // to
           formData.title,
           formData.message,
           formData.playerName,
@@ -180,31 +171,29 @@ export default function BlockchainNFTMintForm() {
           BigInt(Math.floor(parseFloat(paymentAmount) * 100)), // paymentAmount (円を整数化)
           venueId ? true : false, // isVenueAttendee
         ],
+        gas: 350000n, // ガスリミットを明示的に設定
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error minting NFT:', error);
-      alert(`❌ エラー\n\n${error.message || 'NFTの発行に失敗しました'}`);
+      const errorMessage = error instanceof Error ? error.message : 'NFTの発行に失敗しました';
+      alert(`❌ エラー\n\n${errorMessage}`);
     }
   };
 
-  // ローディング中
-  if (loadingPlayers) {
+  // SSR時はローディング表示（Hydration Errorを防ぐ）
+  if (!mounted) {
     return (
-      <div className="max-w-2xl mx-auto p-6 text-center">
-        <p className="text-gray-600">選手データを読み込み中...</p>
+      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+          ブロックチェーンNFT応援カード発行
+        </h2>
+        <div className="text-center py-8 text-gray-500">
+          読み込み中...
+        </div>
       </div>
     );
   }
-
-  // ポジションでグループ化
-  const groupedPlayers: Record<string, Player[]> = {};
-  players.forEach((player) => {
-    if (!groupedPlayers[player.position]) {
-      groupedPlayers[player.position] = [];
-    }
-    groupedPlayers[player.position].push(player);
-  });
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -257,29 +246,17 @@ export default function BlockchainNFTMintForm() {
           />
         </div>
 
-        {/* 選手選択 */}
+        {/* 応援対象選択 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            応援する選手 <span className="text-red-500">*</span>
+            応援対象 <span className="text-red-500">*</span>
           </label>
-          <select
-            value={formData.playerName}
-            onChange={(e) => setFormData({ ...formData, playerName: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-            disabled={!isConnected}
-          >
-            <option value="">選手を選択してください</option>
-            {Object.entries(groupedPlayers).map(([position, playersInPosition]) => (
-              <optgroup key={position} label={position}>
-                {playersInPosition.map((player) => (
-                  <option key={player.id} value={player.name}>
-                    {player.number}. {player.name}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <div className="w-full px-4 py-3 border-2 border-gray-300 bg-gray-100 rounded-lg font-medium text-gray-700">
+            ⚽ チームを応援
+          </div>
+          <p className="text-sm text-gray-500 mt-1">
+            現在はチーム全体への応援のみ選択できます
+          </p>
         </div>
 
         {/* デフォルト画像選択 */}
