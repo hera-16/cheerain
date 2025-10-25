@@ -10,6 +10,7 @@ interface UserData {
   email: string;
   role: 'user' | 'admin';
   createdAt: string;
+  uid?: string; // マイページとの互換性のため
 }
 
 interface AuthContextType {
@@ -36,35 +37,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
 
-    if (token) {
-      // トークンがある場合、現在のユーザー情報を取得
-      const fetchUser = async () => {
-        try {
-          const response = await api.get<UserData>('/auth/me');
-
-          if (response.success && response.data) {
-            console.log('✅ [AuthContext] ユーザー情報取得成功:', response.data);
-            setUser(response.data);
-            setUserData(response.data);
-          }
-        } catch (error) {
-          console.error('❌ [AuthContext] ユーザー情報取得エラー:', error);
-          // トークンが無効な場合はログアウト
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
-          }
-          setUser(null);
-          setUserData(null);
-        } finally {
-          setLoading(false);
+    if (token && storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log('✅ [AuthContext] localStorageからユーザー情報を復元:', parsedUser);
+        setUser(parsedUser);
+        setUserData(parsedUser);
+      } catch (error) {
+        console.error('❌ [AuthContext] ユーザー情報のパースエラー:', error);
+        // パースに失敗したらクリア
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
         }
-      };
-
-      fetchUser();
+        setUser(null);
+        setUserData(null);
+      } finally {
+        setLoading(false);
+      }
     } else {
-      console.log('🚪 [AuthContext] トークンが存在しません');
+      console.log('🚪 [AuthContext] トークンまたはユーザー情報が存在しません');
       setLoading(false);
     }
   }, []);
