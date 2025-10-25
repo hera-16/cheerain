@@ -12,6 +12,8 @@ CheeRainは、ファンが送った応援コメントをブロックチェーン
 
 ### 主な機能
 
+- **ブロックチェーンNFT発行**: Polygon Amoy Testnetで実際にNFTを発行
+- **ウォレット接続**: MetaMask/WalletConnectでWeb3ウォレット接続
 - **応援メッセージNFT発行**: 選手への応援メッセージをNFTとして永久保存
 - **人気投票機能**: 応援数に基づいて人気選手をランキング表示
 - **NFTコレクション**: 自分が発行したNFTを一覧で確認
@@ -29,18 +31,23 @@ CheeRainは、ファンが送った応援コメントをブロックチェーン
 - **Tailwind CSS 4**
 - **React 19**
 
-### バックエンド・インフラ
-- **Firebase**
-  - Authentication（メール/パスワード認証）
-  - Firestore Database（NoSQLデータベース）
-  - Storage（画像保存）
-- **Vercel**（ホスティング）
+### バックエンド
+- **Java / Spring Boot 3.2** - RESTful API
+- **Spring Security + JWT** - 認証・認可
+- **MySQL 8.0** - データベース
+- **Firebase Authentication** - UID管理（後方互換性）
 
-### Web3関連
-- **Wagmi** - Web3 React Hooks
+### ブロックチェーン・Web3
+- **Polygon Amoy Testnet** - NFT発行ネットワーク
+- **Wagmi 2.x** - Web3 React Hooks
 - **Viem** - Ethereum library
-- **Ethers.js** - Ethereum interaction
-- **Polygon Network** - NFT発行（低ガス代）
+- **Reown AppKit** - ウォレット接続UI
+- **OpenZeppelin Contracts** - ERC-721スマートコントラクト
+- **Hardhat** - スマートコントラクト開発環境
+
+### インフラ
+- **Vercel** - フロントエンドホスティング
+- **Docker** - バックエンドコンテナ化
 
 ---
 
@@ -100,6 +107,53 @@ npm run dev
 ```
 
 ブラウザで [http://localhost:3000](http://localhost:3000) を開いてください。
+
+---
+
+## ⛓️ ブロックチェーンNFT発行のセットアップ
+
+実際にPolygon Amoy Testnet上でNFTを発行する場合は、以下の追加セットアップが必要です。
+
+### 詳細なセットアップガイド
+
+📖 **[BLOCKCHAIN_SETUP.md](docs/BLOCKCHAIN_SETUP.md)** を参照してください。
+
+### クイックスタート
+
+1. **MetaMaskのインストール**
+   - [MetaMask](https://metamask.io/)をブラウザにインストール
+
+2. **Polygon Amoy Testnetの追加**
+   - ネットワーク名: `Polygon Amoy Testnet`
+   - RPC URL: `https://rpc-amoy.polygon.technology`
+   - チェーンID: `80002`
+
+3. **テストMATICの取得（無料）**
+   - [Polygon Faucet](https://faucet.polygon.technology/)からテストトークンを取得
+
+4. **WalletConnect Project IDの取得**
+   - [Reown Cloud](https://cloud.reown.com/)でプロジェクトを作成
+   - Project IDを `.env.local` に追加:
+   ```env
+   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id_here
+   ```
+
+5. **スマートコントラクトのデプロイ**
+   ```bash
+   # Hardhatでコントラクトをコンパイル
+   npx hardhat compile
+
+   # Polygon Amoy Testnetにデプロイ
+   npx hardhat run scripts/deploy.js --network polygonAmoy
+   ```
+
+6. **コントラクトアドレスを設定**
+   ```env
+   NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=0x...
+   ```
+
+7. **ブロックチェーンNFT発行ページにアクセス**
+   - `http://localhost:3000/blockchain-mint`
 
 ---
 
