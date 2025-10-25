@@ -6,6 +6,8 @@ export interface NFT {
   playerName: string;
   imageUrl?: string;
   creatorAddress?: string;
+  creatorUserId?: string;
+  isVenueAttendee?: boolean;
   createdAt: Date;
   transactionHash?: string;
 }
