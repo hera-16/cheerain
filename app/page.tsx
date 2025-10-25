@@ -145,7 +145,7 @@ export default function Home() {
       <footer className="bg-gray-800 text-white py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-gray-400">
-            © 2025 CHEERAIN - ギラヴァンツ北九州応援アプリ
+            © 2025 CHEERAIN - チーム糸島
           </p>
           <div className="mt-4 flex justify-center gap-6">
             <Link href="/matches" className="text-gray-400 hover:text-white transition">

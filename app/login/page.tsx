@@ -71,7 +71,7 @@ export default function LoginPage() {
           if (response.data.user.role?.toUpperCase() === 'ADMIN') {
             window.location.href = '/admin';
           } else {
-            window.location.href = '/mypage';
+            window.location.href = '/blockchain-mint/nfts';
           }
         }
       }
