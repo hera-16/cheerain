@@ -15,11 +15,6 @@ interface VenueCode {
 export default function VenueCodesPage() {
   const [venueCodes, setVenueCodes] = useState<VenueCode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [formData, setFormData] = useState({
-    code: '',
-    venueName: '',
-  });
 
   useEffect(() => {
     fetchVenueCodes();
@@ -35,26 +30,6 @@ export default function VenueCodesPage() {
       alert('現地コードの取得に失敗しました');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.code || !formData.venueName) {
-      alert('全ての項目を入力してください');
-      return;
-    }
-
-    try {
-      await api.post('/venue-codes', formData);
-      alert('現地コードを作成しました');
-      setFormData({ code: '', venueName: '' });
-      setShowCreateModal(false);
-      fetchVenueCodes();
-    } catch (error) {
-      console.error('作成エラー:', error);
-      alert('現地コードの作成に失敗しました');
     }
   };
 
@@ -90,12 +65,12 @@ export default function VenueCodesPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">現地コード管理</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          <a
+            href="/admin"
+            className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
           >
-            + 新規作成
-          </button>
+            ← ダッシュボードに戻る
+          </a>
         </div>
 
         {/* 現地コード一覧 */}
@@ -180,65 +155,6 @@ export default function VenueCodesPage() {
             </tbody>
           </table>
         </div>
-
-        {/* 作成モーダル */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-                  新規現地コード作成
-                </h3>
-                <form onSubmit={handleCreate}>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      コード <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.code}
-                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="例: VENUE2025"
-                      required
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      会場名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.venueName}
-                      onChange={(e) => setFormData({ ...formData, venueName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="例: 東京ドーム"
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      type="submit"
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      作成
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateModal(false);
-                        setFormData({ code: '', venueName: '' });
-                      }}
-                      className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

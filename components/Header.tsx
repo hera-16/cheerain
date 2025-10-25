@@ -39,6 +39,12 @@ export default function Header() {
               ブロックチェーンNFT
             </Link>
             <Link
+              href="/matches"
+              className="px-3 lg:px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide text-sm lg:text-base"
+            >
+              試合結果
+            </Link>
+            <Link
               href="/mypage"
               className="px-3 lg:px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide text-sm lg:text-base"
             >
@@ -101,6 +107,13 @@ export default function Header() {
               className="block px-4 py-3 text-yellow-100 hover:bg-red-800 transition font-bold tracking-wide rounded"
             >
               ブロックチェーンNFT
+            </Link>
+            <Link
+              href="/matches"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="block px-4 py-3 text-yellow-100 hover:bg-red-800 transition font-bold tracking-wide rounded"
+            >
+              試合結果
             </Link>
             <Link
               href="/mypage"

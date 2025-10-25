@@ -5,6 +5,7 @@ import com.cheerain.dto.response.ApiResponse;
 import com.cheerain.dto.response.UserResponse;
 import com.cheerain.service.AdminService;
 import com.cheerain.service.AnalyticsService;
+import com.cheerain.service.MatchSchedulerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +22,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AnalyticsService analyticsService;
+    private final MatchSchedulerService matchSchedulerService;
 
     @GetMapping("/users")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
@@ -46,5 +48,11 @@ public class AdminController {
     public ResponseEntity<ApiResponse<AnalyticsResponse>> getAnalytics() {
         AnalyticsResponse analytics = analyticsService.getAnalytics();
         return ResponseEntity.ok(ApiResponse.success(analytics));
+    }
+
+    @PostMapping("/matches/update")
+    public ResponseEntity<ApiResponse<String>> updateMatchData() {
+        matchSchedulerService.manualUpdate();
+        return ResponseEntity.ok(ApiResponse.success("試合データの更新を開始しました"));
     }
 }

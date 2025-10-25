@@ -173,7 +173,7 @@ export default function AdminDashboard() {
         <h2 className="text-3xl font-black text-yellow-300 mb-6 tracking-wider">
           🚀 クイックアクション
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <a
             href="/admin/users"
             className="block bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-center hover:from-blue-700 hover:to-blue-800 transition shadow-lg border-2 border-yellow-400"
@@ -202,13 +202,6 @@ export default function AdminDashboard() {
             <div className="text-4xl mb-2">🎫</div>
             <p className="text-xl font-black text-yellow-300">現地コード</p>
           </a>
-          <a
-            href="/admin/matches"
-            className="block bg-gradient-to-r from-indigo-600 to-indigo-700 p-6 text-center hover:from-indigo-700 hover:to-indigo-800 transition shadow-lg border-2 border-yellow-400"
-          >
-            <div className="text-4xl mb-2">⚽</div>
-            <p className="text-xl font-black text-yellow-300">試合管理</p>
-          </a>
         </div>
       </div>
       
@@ -219,13 +212,21 @@ export default function AdminDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="md:col-span-2">
-            <label className="block text-sm font-bold text-gray-800 mb-2">コード（任意）</label>
+            <label className="block text-sm font-bold text-gray-800 mb-2">コード（5桁必須）</label>
             <input
               value={newCode}
-              onChange={(e) => setNewCode(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                // 5文字以内に制限
+                if (value.length <= 5) {
+                  setNewCode(value);
+                }
+              }}
               className="w-full px-4 py-2 border-2 border-gray-300"
-              placeholder="空欄の場合はランダム生成されます（5桁の数字推奨）"
+              placeholder="5桁のコードを入力（例: 12345）"
+              maxLength={5}
             />
+            <p className="text-xs text-red-600 mt-1 font-bold">※ 必ず5文字で入力してください</p>
             <label className="block text-sm font-bold text-gray-800 mb-2 mt-3">会場名（任意）</label>
             <input
               value={venueName}
@@ -233,15 +234,21 @@ export default function AdminDashboard() {
               className="w-full px-4 py-2 border-2 border-gray-300"
               placeholder="例: 東京スタジアム"
             />
-            <p className="text-xs text-gray-500 mt-2">5桁の数字を推奨（互換性のため）。</p>
           </div>
           <div className="flex items-end">
             <button
               onClick={async () => {
                 if (creating) return;
+                
+                // コードの桁数チェック
+                const codeVal = newCode.trim();
+                if (!codeVal || codeVal.length !== 5) {
+                  alert('コードは必ず5文字で入力してください');
+                  return;
+                }
+                
                 setCreating(true);
                 try {
-                  const codeVal = newCode && newCode.trim().length > 0 ? newCode.trim() : undefined;
                   const response = await api.post<any>('/venue-codes', {
                     code: codeVal,
                     venueName: venueName || null,

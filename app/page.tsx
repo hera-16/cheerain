@@ -115,30 +115,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {/* CTA セクション */}
-        <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl shadow-2xl p-12 text-center text-white">
-          <h2 className="text-3xl font-black mb-4">
-            さあ、一緒に応援しよう！
-          </h2>
-          <p className="text-xl mb-8 text-red-100">
-            アカウント登録で、すべての機能が使えるようになります
-          </p>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={() => router.push('/register')}
-              className="px-8 py-4 bg-white text-red-600 rounded-lg text-lg font-bold hover:bg-red-50 transition transform hover:scale-105"
-            >
-              無料で始める
-            </button>
-            <button
-              onClick={() => router.push('/matches')}
-              className="px-8 py-4 bg-red-800 text-white rounded-lg text-lg font-bold hover:bg-red-900 transition border-2 border-white transform hover:scale-105"
-            >
-              戦績を見る
-            </button>
-          </div>
-        </div>
       </main>
 
       {/* フッター */}

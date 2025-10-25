@@ -22,17 +22,29 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCompetition, setSelectedCompetition] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
   const [stats, setStats] = useState({ wins: 0, draws: 0, losses: 0, total: 0 });
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
 
   useEffect(() => {
     fetchMatches();
-  }, [selectedCompetition]);
+  }, [selectedCompetition, selectedYear]);
 
   const fetchMatches = async () => {
     try {
-      const url = selectedCompetition === 'all'
-        ? 'http://localhost:8080/api/v1/matches'
-        : `http://localhost:8080/api/v1/matches?competition=${encodeURIComponent(selectedCompetition)}`;
+      let url = 'http://localhost:8080/api/v1/matches';
+      const params = new URLSearchParams();
+      
+      if (selectedCompetition !== 'all') {
+        params.append('competition', selectedCompetition);
+      }
+      if (selectedYear !== 'all') {
+        params.append('year', selectedYear);
+      }
+      
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
       
       const response = await fetch(url);
       const data = await response.json();
@@ -40,12 +52,18 @@ export default function MatchesPage() {
       if (data.success) {
         setMatches(data.data);
         calculateStats(data.data);
+        extractAvailableYears(data.data);
       }
     } catch (error) {
       console.error('試合データの取得に失敗:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const extractAvailableYears = (matchList: Match[]) => {
+    const years = [...new Set(matchList.map(m => new Date(m.matchDate).getFullYear().toString()))];
+    setAvailableYears(years.sort((a, b) => parseInt(b) - parseInt(a)));
   };
 
   const calculateStats = (matchList: Match[]) => {
@@ -146,20 +164,60 @@ export default function MatchesPage() {
       <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-8 shadow-lg">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-4 mb-4 text-sm">
-            <Link href="/" className="hover:underline">
-              ← ホームに戻る
+            <Link href="/mypage" className="hover:underline">
+              ← マイページに戻る
             </Link>
             {typeof window !== 'undefined' && localStorage.getItem('token') && (
               <>
                 <span className="text-red-300">|</span>
-                <Link href="/mypage" className="hover:underline">
-                  マイページ
+                <Link href="/" className="hover:underline">
+                  ホーム
                 </Link>
               </>
             )}
           </div>
           <h1 className="text-4xl font-black tracking-wider">⚽ 試合結果・戦績</h1>
-          <p className="mt-2 text-red-100">ギラヴァンツ北九州 2025シーズン</p>
+          <p className="mt-2 text-red-100">ギラヴァンツ北九州 {selectedYear === 'all' ? '全シーズン' : `${selectedYear}シーズン`}</p>
+          <a 
+            href="https://www.giravanz.jp/game/schedule.html" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="mt-2 inline-block text-sm text-yellow-300 hover:text-yellow-100 underline"
+          >
+            📅 公式スケジュールを見る
+          </a>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* 年別フィルター */}
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">シーズン</h3>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedYear('all')}
+              className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap ${
+                selectedYear === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300'
+              }`}
+            >
+              全シーズン
+            </button>
+            {availableYears.map(year => (
+              <button
+                key={year}
+                onClick={() => setSelectedYear(year)}
+                className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap ${
+                  selectedYear === year
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300'
+                }`}
+              >
+                {year}年
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -192,8 +250,9 @@ export default function MatchesPage() {
           )}
         </div>
 
-        {/* フィルター */}
+        {/* 大会別フィルター */}
         <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">大会</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
             <button
               onClick={() => setSelectedCompetition('all')}
