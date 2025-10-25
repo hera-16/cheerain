@@ -8,7 +8,7 @@ interface UserData {
   id: string;
   userId: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'USER' | 'ADMIN' | 'user' | 'admin'; // 大文字小文字両方に対応
   createdAt: string;
   uid?: string; // マイページとの互換性のため
 }
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isAdmin = userData?.role === 'admin';
+  const isAdmin = userData?.role?.toUpperCase() === 'ADMIN';
 
   return (
     <AuthContext.Provider value={{ user, userData, isAdmin, loading, logout }}>

@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -42,12 +43,14 @@ export default function LoginPage() {
         const response = await api.post<RegisterResponse>('/auth/register', {
           email,
           password,
+          role: isAdmin ? 'ADMIN' : 'USER',
         });
 
         if (response.success) {
           alert('登録が完了しました。ログインしてください。');
           setIsSignUp(false);
           setPassword('');
+          setIsAdmin(false);
         }
       } else {
         // ログイン
@@ -63,8 +66,13 @@ export default function LoginPage() {
           const userWithUid = { ...response.data.user, uid: response.data.user.id };
           localStorage.setItem('user', JSON.stringify(userWithUid));
 
-          // マイページにリダイレクト
-          router.push('/mypage');
+          // ページをリロードしてAuthContextを更新
+          // ロールに応じてリダイレクト
+          if (response.data.user.role?.toUpperCase() === 'ADMIN') {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/mypage';
+          }
         }
       }
     } catch (err) {
@@ -142,6 +150,43 @@ export default function LoginPage() {
               />
             </div>
 
+            {/* アカウント種別選択（新規登録時のみ表示） */}
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
+                  アカウント種別
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border-2 border-gray-300 cursor-pointer hover:border-red-700 transition">
+                    <input
+                      type="radio"
+                      name="accountType"
+                      checked={!isAdmin}
+                      onChange={() => setIsAdmin(false)}
+                      className="mr-3 w-4 h-4 text-red-700 focus:ring-red-700"
+                    />
+                    <div>
+                      <div className="font-bold text-gray-900">👤 一般ユーザー</div>
+                      <div className="text-xs text-gray-600">選手への応援メッセージ送信、NFT発行</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center p-3 border-2 border-gray-300 cursor-pointer hover:border-purple-700 transition">
+                    <input
+                      type="radio"
+                      name="accountType"
+                      checked={isAdmin}
+                      onChange={() => setIsAdmin(true)}
+                      className="mr-3 w-4 h-4 text-purple-700 focus:ring-purple-700"
+                    />
+                    <div>
+                      <div className="font-bold text-gray-900">👑 管理者</div>
+                      <div className="text-xs text-gray-600">システム管理、統計閲覧、ユーザー管理</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-100 border-2 border-red-700 text-red-900 px-4 py-3 text-sm font-bold">
                 {error}
@@ -162,6 +207,7 @@ export default function LoginPage() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
+                setIsAdmin(false);
               }}
               className="text-red-700 hover:text-red-900 text-sm font-bold tracking-wide underline"
             >

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
 interface Stats {
@@ -14,6 +14,9 @@ interface Stats {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const { isAdmin, loading: authLoading, userData } = useAuth();
+  
   const [stats, setStats] = useState<Stats>({
     totalNFTs: 0,
     totalUsers: 0,
@@ -27,30 +30,26 @@ export default function AdminDashboard() {
   const [venueName, setVenueName] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // 初回ロードで既存の有効な現地コードを取得（最新1件のみ）
+  // 管理者権限チェック
+  useEffect(() => {
+    if (!authLoading) {
+      console.log('Auth check:', { isAdmin, userData });
+      if (!isAdmin) {
+        // デバッグ情報を含むアラート
+        alert(`管理者権限が必要です\n\nデバッグ情報:\nisAdmin: ${isAdmin}\nrole: ${userData?.role}\nemail: ${userData?.email}`);
+        router.push('/login');
+      }
+    }
+  }, [isAdmin, authLoading, router, userData]);
+
+  // 初回ロードで既存の有効な現地コードを取得
   useEffect(() => {
     const loadCodes = async () => {
       try {
-        const q = query(collection(db, 'venueCodes'), orderBy('createdAt','desc'));
-        const snap = await getDocs(q);
-        const nowDate = new Date();
-        if (snap.docs.length === 0) {
-          setCodes([]);
-          return;
+        const response = await api.get<any[]>('/venue-codes');
+        if (response.success && response.data) {
+          setCodes(response.data);
         }
-        // keep only the latest non-expired document
-        let latest: any = null;
-        for (const d of snap.docs) {
-          const data = d.data();
-          const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
-          if (expiresAt && expiresAt < nowDate) {
-            await deleteDoc(doc(db, 'venueCodes', d.id));
-            continue;
-          }
-          latest = { id: d.id, ...data };
-          break;
-        }
-        setCodes(latest ? [latest] : []);
       } catch (err) {
         console.error('現地コード取得エラー', err);
       }
@@ -65,10 +64,17 @@ export default function AdminDashboard() {
         const response = await api.get<Stats>('/analytics');
 
         if (response.success && response.data) {
-          setStats(response.data);
+          setStats({
+            totalNFTs: response.data.totalNFTs || 0,
+            totalUsers: response.data.totalUsers || 0,
+            totalPayments: response.data.totalPayments || 0,
+            venueAttendees: response.data.venueAttendees || 0,
+            thisMonthNFTs: response.data.thisMonthNFTs || 0,
+          });
         }
       } catch (error) {
         console.error('統計データの取得エラー:', error);
+        // エラーが発生しても初期値を保持
       } finally {
         setLoading(false);
       }
@@ -77,7 +83,7 @@ export default function AdminDashboard() {
     fetchStats();
   }, []);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
@@ -127,7 +133,7 @@ export default function AdminDashboard() {
             <div className="text-5xl mb-3">💰</div>
             <p className="text-sm text-yellow-200 font-bold mb-2">支払い総額</p>
             <p className="text-5xl font-black text-yellow-300">
-              ¥{stats.totalPayments.toLocaleString()}
+              ¥{(stats.totalPayments || 0).toLocaleString()}
             </p>
           </div>
         </div>
@@ -156,7 +162,7 @@ export default function AdminDashboard() {
             <div className="text-5xl mb-3">📈</div>
             <p className="text-sm text-yellow-200 font-bold mb-2">平均支払額</p>
             <p className="text-5xl font-black text-yellow-300">
-              ¥{stats.totalNFTs > 0 ? Math.round(stats.totalPayments / stats.totalNFTs).toLocaleString() : 0}
+              ¥{(stats.totalNFTs || 0) > 0 ? Math.round((stats.totalPayments || 0) / stats.totalNFTs).toLocaleString() : 0}
             </p>
           </div>
         </div>
@@ -221,48 +227,25 @@ export default function AdminDashboard() {
                 if (creating) return;
                 setCreating(true);
                 try {
-                  const codeVal = newCode && newCode.trim().length > 0 ? newCode.trim() : String(Math.floor(10000 + Math.random() * 90000));
-                  const now = new Date();
-                  const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                  // 既存コードがあれば更新して1つだけ保持
-                  if (codes && codes.length > 0) {
-                    const existing = codes[0];
-                    const ref = doc(db, 'venueCodes', existing.id);
-                    await updateDoc(ref, {
-                      code: codeVal,
-                      venueName: venueName || existing.venueName || null,
-                      createdAt: serverTimestamp(),
-                      expiresAt: Timestamp.fromDate(expires),
-                      createdBy: 'admin',
-                    });
-                  } else {
-                    await addDoc(collection(db, 'venueCodes'), {
-                      code: codeVal,
-                      venueName: venueName || null,
-                      createdAt: serverTimestamp(),
-                      expiresAt: Timestamp.fromDate(expires),
-                      createdBy: 'admin',
-                    });
-                  }
-                  setNewCode('');
-                  // 再取得（最新1件）
-                  const q = query(collection(db, 'venueCodes'), orderBy('createdAt','desc'));
-                  const snap = await getDocs(q);
-                  const nowDate = new Date();
-                  let latest: any = null;
-                  for (const d of snap.docs) {
-                    const data = d.data();
-                    const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
-                    if (expiresAt && expiresAt < nowDate) {
-                      await deleteDoc(doc(db, 'venueCodes', d.id));
-                      continue;
+                  const codeVal = newCode && newCode.trim().length > 0 ? newCode.trim() : undefined;
+                  const response = await api.post<any>('/venue-codes', {
+                    code: codeVal,
+                    venueName: venueName || null,
+                  });
+                  
+                  if (response.success) {
+                    // 再取得
+                    const listResponse = await api.get<any[]>('/venue-codes');
+                    if (listResponse.success && listResponse.data) {
+                      setCodes(listResponse.data);
                     }
-                    latest = { id: d.id, ...data };
-                    break;
+                    setNewCode('');
+                    setVenueName('');
+                    alert('現地コードを作成しました！');
                   }
-                  setCodes(latest ? [latest] : []);
-                } catch (err) {
+                } catch (err: any) {
                   console.error('コード作成エラー', err);
+                  alert(err.message || 'コード作成に失敗しました');
                 } finally {
                   setCreating(false);
                 }
@@ -287,7 +270,7 @@ export default function AdminDashboard() {
                     <div>
                       <div className="font-black text-lg text-red-700 tracking-wider">{c.code}</div>
                       <div className="text-sm text-gray-700">会場名: {c.venueName || '-'}</div>
-                      <div className="text-xs text-gray-600">有効期限: {c.expiresAt?.toDate ? c.expiresAt.toDate().toLocaleString() : '-'}</div>
+                      <div className="text-xs text-gray-600">有効期限: {c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '-'}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -302,9 +285,17 @@ export default function AdminDashboard() {
                       <button
                         onClick={async () => {
                           try{
-                            await deleteDoc(doc(db,'venueCodes',c.id));
-                            setCodes([]);
-                          }catch(e){ console.error(e); }
+                            await api.delete(`/venue-codes/${c.id}`);
+                            // 再取得
+                            const response = await api.get<any[]>('/venue-codes');
+                            if (response.success && response.data) {
+                              setCodes(response.data);
+                            }
+                            alert('現地コードを削除しました');
+                          }catch(e: any){ 
+                            console.error(e);
+                            alert(e.message || '削除に失敗しました');
+                          }
                         }}
                         className="px-3 py-2 bg-gray-300 font-bold text-gray-800 border-2 border-gray-400"
                       >削除</button>

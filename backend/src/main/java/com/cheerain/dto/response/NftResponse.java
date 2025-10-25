@@ -19,7 +19,7 @@ public class NftResponse {
     private String imageUrl;
     private String creatorUid;
     private String creatorUserId;
-    private String creatorEmail;
+    private String creatorAddress; // フロントエンド用
     private BigDecimal paymentAmount;
     private String paymentMethod;
     private String venueId;
@@ -35,9 +35,9 @@ public class NftResponse {
                 nft.getImageUrl(),
                 nft.getCreatorUid(),
                 nft.getCreatorUserId(),
-                nft.getCreatorEmail(),
+                nft.getCreatorEmail(), // creatorAddressとして返す
                 nft.getPaymentAmount(),
-                nft.getPaymentMethod().name().toLowerCase(),
+                nft.getPaymentMethod().name(),
                 nft.getVenueId(),
                 nft.getIsVenueAttendee(),
                 nft.getCreatedAt()

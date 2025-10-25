@@ -23,7 +23,7 @@ public class UserResponse {
                 user.getId(),
                 user.getUserId(),
                 user.getEmail(),
-                user.getRole().name().toLowerCase(),
+                user.getRole().name(), // 大文字のまま返す (ADMIN, USER)
                 user.getProfileImage(),
                 user.getCreatedAt()
         );

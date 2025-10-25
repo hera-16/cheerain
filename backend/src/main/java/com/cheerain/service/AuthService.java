@@ -35,7 +35,13 @@ public class AuthService {
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole(User.Role.USER);
+        
+        // リクエストからロールを設定（デフォルトはUSER）
+        if ("ADMIN".equalsIgnoreCase(request.getRole())) {
+            user.setRole(User.Role.ADMIN);
+        } else {
+            user.setRole(User.Role.USER);
+        }
 
         User savedUser = userRepository.save(user);
         return UserResponse.fromEntity(savedUser);

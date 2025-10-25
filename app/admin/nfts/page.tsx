@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import api from '@/lib/api';
 
 interface NFT {
   id: string;
@@ -16,7 +15,7 @@ interface NFT {
   paymentMethod: string;
   isVenueAttendee: boolean;
   venueId?: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export default function NFTsManagement() {
@@ -31,24 +30,11 @@ export default function NFTsManagement() {
 
   const fetchNFTs = async () => {
     try {
-      const nftsSnapshot = await getDocs(collection(db, 'nfts'));
-      const nftsList: NFT[] = nftsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        title: doc.data().title,
-        message: doc.data().message,
-        playerName: doc.data().playerName,
-        imageUrl: doc.data().imageUrl,
-        creatorUserId: doc.data().creatorUserId,
-        creatorAddress: doc.data().creatorAddress,
-        paymentAmount: doc.data().paymentAmount,
-        paymentMethod: doc.data().paymentMethod,
-        isVenueAttendee: doc.data().isVenueAttendee || false,
-        venueId: doc.data().venueId,
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      }));
+      const response = await api.get<NFT[]>('/admin/nfts');
+      const nftsList = response.data;
 
       // 作成日で降順ソート
-      nftsList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      nftsList.sort((a: NFT, b: NFT) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setNfts(nftsList);
     } catch (error) {
@@ -65,7 +51,7 @@ export default function NFTsManagement() {
     }
 
     try {
-      await deleteDoc(doc(db, 'nfts', nftId));
+      await api.delete(`/admin/nfts/${nftId}`);
 
       // ローカルステートを更新
       setNfts(nfts.filter(nft => nft.id !== nftId));
@@ -109,9 +95,17 @@ export default function NFTsManagement() {
         <h1 className="text-5xl font-black text-yellow-300 mb-4 tracking-wider">
           NFT管理
         </h1>
-        <p className="text-xl text-gray-300 font-bold">
-          全{nfts.length}件のNFT
-        </p>
+        <div className="flex justify-center gap-8 text-lg font-bold">
+          <p className="text-gray-300">
+            全{nfts.length}件
+          </p>
+          <p className="text-green-400">
+            会場参加: {nfts.filter(n => n.isVenueAttendee).length}件
+          </p>
+          <p className="text-blue-400">
+            リモート: {nfts.filter(n => !n.isVenueAttendee).length}件
+          </p>
+        </div>
       </div>
 
       {/* フィルター＆検索 */}
@@ -217,7 +211,7 @@ export default function NFTsManagement() {
                 <div className="space-y-2 text-sm text-gray-400 font-medium mb-4">
                   <div>👤 {nft.creatorUserId}</div>
                   <div>💰 ¥{nft.paymentAmount.toLocaleString()} ({nft.paymentMethod})</div>
-                  <div>📅 {nft.createdAt.toLocaleDateString('ja-JP')}</div>
+                  <div>📅 {new Date(nft.createdAt).toLocaleDateString('ja-JP')}</div>
                   {nft.venueId && <div>🏟️ 会場ID: {nft.venueId}</div>}
                 </div>
 
