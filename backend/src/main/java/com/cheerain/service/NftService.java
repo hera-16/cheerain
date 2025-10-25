@@ -84,7 +84,7 @@ public class NftService {
     }
 
     /**
-     * 管理者用: 全NFTを取得（ページネーションなし）
+     * 管理者用: すべてのNFTを取得
      */
     @Transactional(readOnly = true)
     public java.util.List<NftResponse> getAllNFTs() {

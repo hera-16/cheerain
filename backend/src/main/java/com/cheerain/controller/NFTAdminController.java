@@ -1,8 +1,8 @@
 package com.cheerain.controller;
 
 import com.cheerain.dto.response.ApiResponse;
-import com.cheerain.dto.response.NFTResponse;
-import com.cheerain.service.NFTService;
+import com.cheerain.dto.response.NftResponse;
+import com.cheerain.service.NftService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,11 +16,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NFTAdminController {
 
-    private final NFTService nftService;
+    private final NftService nftService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<NFTResponse>>> getAllNFTs() {
-        List<NFTResponse> nfts = nftService.getAllNFTs();
+    public ResponseEntity<ApiResponse<List<NftResponse>>> getAllNFTs() {
+        List<NftResponse> nfts = nftService.getAllNFTs();
         return ResponseEntity.ok(ApiResponse.success(nfts));
     }
 

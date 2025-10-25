@@ -42,7 +42,7 @@ export default function Analytics() {
   const fetchAnalytics = async () => {
     try {
       const response = await api.get<AnalyticsData>('/admin/analytics');
-      setAnalyticsData(response.data);
+      setAnalyticsData(response.data || null);
     } catch (error) {
       console.error('分析データ取得エラー:', error);
       alert('分析データの取得に失敗しました');

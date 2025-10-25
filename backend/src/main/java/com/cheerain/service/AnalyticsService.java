@@ -111,26 +111,3 @@ public class AnalyticsService {
                 .build();
     }
 }
-
-                        (Long) row[1]
-                ))
-                .collect(Collectors.toList());
-        response.setPaymentMethodStats(paymentMethodStats);
-
-        return response;
-    }
-
-    @Transactional(readOnly = true)
-    public List<PlayerRankingResponse> getPlayerRanking(int limit) {
-        List<Object[]> rankingData = nftRepository.findPlayerRanking();
-        List<PlayerRankingResponse> ranking = new ArrayList<>();
-        int rank = 1;
-        for (Object[] row : rankingData) {
-            if (rank > limit) break;
-            String playerName = (String) row[0];
-            Long count = (Long) row[1];
-            ranking.add(new PlayerRankingResponse(playerName, count, rank++));
-        }
-        return ranking;
-    }
-}

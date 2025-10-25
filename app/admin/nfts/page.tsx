@@ -31,10 +31,12 @@ export default function NFTsManagement() {
   const fetchNFTs = async () => {
     try {
       const response = await api.get<NFT[]>('/admin/nfts');
-      const nftsList = response.data;
+      const nftsList = response.data || [];
 
       // 作成日で降順ソート
-      nftsList.sort((a: NFT, b: NFT) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      if (nftsList.length > 0) {
+        nftsList.sort((a: NFT, b: NFT) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      }
 
       setNfts(nftsList);
     } catch (error) {
