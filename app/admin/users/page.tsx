@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import api from '@/lib/api';
 
 interface User {
   id: string;
   userId: string;
   email: string;
-  role: 'user' | 'admin';
-  createdAt: Date;
+  role: 'USER' | 'ADMIN';
+  createdAt: string;
 }
 
 export default function UsersManagement() {
@@ -23,17 +22,11 @@ export default function UsersManagement() {
 
   const fetchUsers = async () => {
     try {
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const usersList: User[] = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        userId: doc.data().userId,
-        email: doc.data().email,
-        role: doc.data().role || 'user',
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      }));
+      const response = await api.get<User[]>('/admin/users');
+      const usersList = response.data;
 
       // 作成日で降順ソート
-      usersList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      usersList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setUsers(usersList);
     } catch (error) {
@@ -44,17 +37,15 @@ export default function UsersManagement() {
     }
   };
 
-  const toggleUserRole = async (userId: string, currentRole: 'user' | 'admin') => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  const toggleUserRole = async (userId: string, currentRole: 'USER' | 'ADMIN') => {
+    const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
 
     if (!confirm(`このユーザーの権限を「${newRole}」に変更しますか？`)) {
       return;
     }
 
     try {
-      await updateDoc(doc(db, 'users', userId), {
-        role: newRole,
-      });
+      await api.put<User>(`/admin/users/${userId}`, { role: newRole });
 
       // ローカルステートを更新
       setUsers(users.map(user =>
@@ -74,7 +65,7 @@ export default function UsersManagement() {
     }
 
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      await api.delete(`/admin/users/${userId}`);
 
       // ローカルステートを更新
       setUsers(users.filter(user => user.id !== userId));
@@ -110,9 +101,17 @@ export default function UsersManagement() {
         <h1 className="text-5xl font-black text-yellow-300 mb-4 tracking-wider">
           ユーザー管理
         </h1>
-        <p className="text-xl text-gray-300 font-bold">
-          全{users.length}名のユーザー
-        </p>
+        <div className="flex justify-center gap-8 text-lg font-bold">
+          <p className="text-gray-300">
+            全{users.length}名
+          </p>
+          <p className="text-red-400">
+            ADMIN: {users.filter(u => u.role === 'ADMIN').length}名
+          </p>
+          <p className="text-blue-400">
+            USER: {users.filter(u => u.role === 'USER').length}名
+          </p>
+        </div>
       </div>
 
       {/* 検索バー */}
@@ -174,17 +173,17 @@ export default function UsersManagement() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex px-3 py-1 text-xs font-black border-2 ${
-                        user.role === 'admin'
+                        user.role === 'ADMIN'
                           ? 'bg-red-600 text-yellow-300 border-yellow-400'
                           : 'bg-gray-700 text-gray-300 border-gray-600'
                       }`}
                     >
-                      {user.role === 'admin' ? '🔧 ADMIN' : '👤 USER'}
+                      {user.role === 'ADMIN' ? '🔧 ADMIN' : '👤 USER'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-400 font-medium">
-                      {user.createdAt.toLocaleDateString('ja-JP')}
+                      {new Date(user.createdAt).toLocaleDateString('ja-JP')}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -192,7 +191,7 @@ export default function UsersManagement() {
                       onClick={() => toggleUserRole(user.id, user.role)}
                       className="mr-3 px-3 py-1 bg-blue-600 text-yellow-300 hover:bg-blue-700 transition font-bold border-2 border-blue-400"
                     >
-                      {user.role === 'admin' ? 'User化' : 'Admin化'}
+                      {user.role === 'ADMIN' ? 'User化' : 'Admin化'}
                     </button>
                     <button
                       onClick={() => deleteUser(user.id, user.email)}

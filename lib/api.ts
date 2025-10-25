@@ -35,20 +35,48 @@ async function fetchApi<T>(
   }
 
   try {
+    console.log('📤 [API Request]', {
+      url: `${API_BASE_URL}${endpoint}`,
+      method: options.method || 'GET',
+      headers,
+      body: options.body
+    });
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
 
-    const data: ApiResponse<T> = await response.json();
+    console.log('� [API Response] Status:', response.status, response.statusText);
+    console.log('� [API Response] Headers:', Object.fromEntries(response.headers.entries()));
+
+    // レスポンスのテキストを取得
+    const responseText = await response.text();
+    console.log('📥 [API Response] Raw text:', responseText);
+
+    // JSONパースを試みる
+    let data: ApiResponse<T>;
+    try {
+      data = JSON.parse(responseText);
+      console.log('� [API Response] Parsed data:', data);
+    } catch (parseError) {
+      console.error('❌ [API Error] JSONパースエラー:', parseError);
+      console.error('❌ [API Error] レスポンステキスト:', responseText);
+      throw new Error('サーバーからの応答が不正です: ' + responseText.substring(0, 100));
+    }
 
     if (!response.ok) {
-      throw new Error(data.error?.message || 'リクエストに失敗しました');
+      console.error('❌ [API Error] Response not OK:', {
+        status: response.status,
+        statusText: response.statusText,
+        data
+      });
+      throw new Error(data.error?.message || data.message || 'リクエストに失敗しました');
     }
 
     return data;
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('❌ [API Error] Exception:', error);
     throw error;
   }
 }
@@ -116,3 +144,5 @@ export const api = {
     }
   },
 };
+
+export default api;

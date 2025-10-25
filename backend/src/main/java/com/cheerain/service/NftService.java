@@ -88,4 +88,25 @@ public class NftService {
                 .orElseThrow(() -> new ResourceNotFoundException("NFTが見つかりません"));
         nftRepository.delete(nft);
     }
+
+    /**
+     * 管理者用: すべてのNFTを取得
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<NftResponse> getAllNFTs() {
+        return nftRepository.findAll().stream()
+                .map(NftResponse::fromEntity)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 管理者用: NFTを削除
+     */
+    @Transactional
+    public void deleteNFT(String id) {
+        if (!nftRepository.existsById(id)) {
+            throw new ResourceNotFoundException("NFTが見つかりません: " + id);
+        }
+        nftRepository.deleteById(id);
+    }
 }

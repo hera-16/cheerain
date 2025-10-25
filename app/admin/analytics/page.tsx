@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import api from '@/lib/api';
 
 interface PlayerStats {
   playerName: string;
@@ -22,17 +21,19 @@ interface MonthlyStats {
   payment: number;
 }
 
+interface AnalyticsData {
+  totalNFTs: number;
+  totalPayment: number;
+  avgPayment: number;
+  venueAttendees: number;
+  playerStats: PlayerStats[];
+  paymentStats: PaymentMethodStats[];
+  monthlyStats: MonthlyStats[];
+}
+
 export default function Analytics() {
   const [loading, setLoading] = useState(true);
-  const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
-  const [paymentStats, setPaymentStats] = useState<PaymentMethodStats[]>([]);
-  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
-  const [totalStats, setTotalStats] = useState({
-    totalNFTs: 0,
-    totalPayment: 0,
-    avgPayment: 0,
-    venueAttendees: 0,
-  });
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -40,92 +41,8 @@ export default function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const nftsSnapshot = await getDocs(collection(db, 'nfts'));
-      const nfts = nftsSnapshot.docs.map(doc => doc.data());
-
-      // 選手別統計
-      const playerMap = new Map<string, { count: number; totalPayment: number }>();
-      nfts.forEach(nft => {
-        const playerName = nft.playerName;
-        const current = playerMap.get(playerName) || { count: 0, totalPayment: 0 };
-        playerMap.set(playerName, {
-          count: current.count + 1,
-          totalPayment: current.totalPayment + (nft.paymentAmount || 0),
-        });
-      });
-
-      const playerStatsData: PlayerStats[] = Array.from(playerMap.entries())
-        .map(([playerName, stats]) => ({
-          playerName,
-          count: stats.count,
-          totalPayment: stats.totalPayment,
-        }))
-        .sort((a, b) => b.count - a.count);
-
-      setPlayerStats(playerStatsData);
-
-      // 支払方法別統計
-      const paymentMap = new Map<string, { count: number; total: number }>();
-      nfts.forEach(nft => {
-        const method = nft.paymentMethod || 'unknown';
-        const current = paymentMap.get(method) || { count: 0, total: 0 };
-        paymentMap.set(method, {
-          count: current.count + 1,
-          total: current.total + (nft.paymentAmount || 0),
-        });
-      });
-
-      const paymentStatsData: PaymentMethodStats[] = Array.from(paymentMap.entries())
-        .map(([method, stats]) => ({
-          method,
-          count: stats.count,
-          total: stats.total,
-        }))
-        .sort((a, b) => b.count - a.count);
-
-      setPaymentStats(paymentStatsData);
-
-      // 月別統計（過去12ヶ月）
-      const monthlyMap = new Map<string, { count: number; payment: number }>();
-      nfts.forEach(nft => {
-        const createdAt = nft.createdAt?.toDate();
-        if (createdAt) {
-          const year = createdAt.getFullYear();
-          const month = createdAt.getMonth() + 1;
-          const monthStr = `${year}年${month}月`;
-          const current = monthlyMap.get(monthStr) || { count: 0, payment: 0 };
-          monthlyMap.set(monthStr, {
-            count: current.count + 1,
-            payment: current.payment + (nft.paymentAmount || 0),
-          });
-        }
-      });
-
-      const monthlyStatsData: MonthlyStats[] = Array.from(monthlyMap.entries())
-        .map(([month, stats]) => ({
-          month,
-          count: stats.count,
-          payment: stats.payment,
-        }))
-        .sort((a, b) => {
-          const [aYear, aMonth] = a.month.match(/\d+/g)!.map(Number);
-          const [bYear, bMonth] = b.month.match(/\d+/g)!.map(Number);
-          return aYear === bYear ? aMonth - bMonth : aYear - bYear;
-        })
-        .slice(-12); // 最新12ヶ月分
-
-      setMonthlyStats(monthlyStatsData);
-
-      // 総合統計
-      const totalPayment = nfts.reduce((sum, nft) => sum + (nft.paymentAmount || 0), 0);
-      const venueAttendees = nfts.filter(nft => nft.isVenueAttendee).length;
-
-      setTotalStats({
-        totalNFTs: nfts.length,
-        totalPayment,
-        avgPayment: nfts.length > 0 ? totalPayment / nfts.length : 0,
-        venueAttendees,
-      });
+      const response = await api.get<AnalyticsData>('/admin/analytics');
+      setAnalyticsData(response.data || null);
     } catch (error) {
       console.error('分析データ取得エラー:', error);
       alert('分析データの取得に失敗しました');
@@ -145,11 +62,22 @@ export default function Analytics() {
     );
   }
 
+  if (!analyticsData) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center">
+          <div className="text-6xl mb-4">❌</div>
+          <p className="text-xl font-black text-red-400">データの取得に失敗しました</p>
+        </div>
+      </div>
+    );
+  }
+
   const getPaymentMethodLabel = (method: string) => {
-    switch (method) {
-      case 'credit': return 'クレジットカード';
-      case 'paypay': return 'PayPay';
-      case 'aupay': return 'auPay';
+    switch (method.toUpperCase()) {
+      case 'CREDIT': return 'クレジットカード';
+      case 'PAYPAY': return 'PayPay';
+      case 'AUPAY': return 'auPay';
       default: return method;
     }
   };
@@ -171,20 +99,20 @@ export default function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">総NFT数</p>
-          <p className="text-4xl font-black text-yellow-300">{totalStats.totalNFTs}</p>
+          <p className="text-4xl font-black text-yellow-300">{analyticsData.totalNFTs}</p>
         </div>
         <div className="bg-gradient-to-br from-green-600 to-green-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">総売上</p>
-          <p className="text-4xl font-black text-yellow-300">¥{totalStats.totalPayment.toLocaleString()}</p>
+          <p className="text-4xl font-black text-yellow-300">¥{analyticsData.totalPayment.toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">平均単価</p>
-          <p className="text-4xl font-black text-yellow-300">¥{Math.round(totalStats.avgPayment).toLocaleString()}</p>
+          <p className="text-4xl font-black text-yellow-300">¥{Math.round(analyticsData.avgPayment).toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-br from-orange-600 to-orange-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">現地参加率</p>
           <p className="text-4xl font-black text-yellow-300">
-            {totalStats.totalNFTs > 0 ? Math.round((totalStats.venueAttendees / totalStats.totalNFTs) * 100) : 0}%
+            {analyticsData.totalNFTs > 0 ? Math.round((analyticsData.venueAttendees / analyticsData.totalNFTs) * 100) : 0}%
           </p>
         </div>
       </div>
@@ -196,7 +124,7 @@ export default function Analytics() {
             ⚽ 選手別応援ランキング
           </h2>
           <div className="space-y-4">
-            {playerStats.slice(0, 10).map((player, index) => (
+            {analyticsData.playerStats.slice(0, 10).map((player: PlayerStats, index: number) => (
               <div
                 key={player.playerName}
                 className="flex items-center justify-between bg-gray-700 p-4 border-2 border-gray-600"
@@ -214,7 +142,7 @@ export default function Analytics() {
                   <div
                     className="bg-red-600 h-6"
                     style={{
-                      width: `${Math.max(50, (player.count / playerStats[0].count) * 200)}px`,
+                      width: `${Math.max(50, (player.count / analyticsData.playerStats[0].count) * 200)}px`,
                     }}
                   ></div>
                 </div>
@@ -229,7 +157,7 @@ export default function Analytics() {
             💳 支払方法別統計
           </h2>
           <div className="space-y-4">
-            {paymentStats.map((payment) => (
+            {analyticsData.paymentStats.map((payment: PaymentMethodStats) => (
               <div
                 key={payment.method}
                 className="bg-gray-700 p-6 border-2 border-gray-600"
@@ -264,12 +192,12 @@ export default function Analytics() {
           📅 月別NFT発行数推移（過去12ヶ月）
         </h2>
 
-        {monthlyStats.length > 0 ? (
+        {analyticsData.monthlyStats.length > 0 ? (
           <div className="space-y-2">
             {/* グラフ本体 */}
             <div className="flex items-end justify-between gap-2 h-80 bg-gray-900 p-6 border-2 border-gray-700">
-              {monthlyStats.map((monthly, index) => {
-                const maxCount = Math.max(...monthlyStats.map(m => m.count), 1);
+              {analyticsData.monthlyStats.map((monthly: MonthlyStats, index: number) => {
+                const maxCount = Math.max(...analyticsData.monthlyStats.map((m: MonthlyStats) => m.count), 1);
                 const heightPercent = (monthly.count / maxCount) * 100;
 
                 return (
@@ -310,19 +238,19 @@ export default function Analytics() {
               <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
                 <p className="text-sm text-gray-400 font-bold mb-1">総発行数</p>
                 <p className="text-2xl font-black text-yellow-300">
-                  {monthlyStats.reduce((sum, m) => sum + m.count, 0)}件
+                  {analyticsData.monthlyStats.reduce((sum: number, m: MonthlyStats) => sum + m.count, 0)}件
                 </p>
               </div>
               <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
                 <p className="text-sm text-gray-400 font-bold mb-1">月平均</p>
                 <p className="text-2xl font-black text-yellow-300">
-                  {Math.round(monthlyStats.reduce((sum, m) => sum + m.count, 0) / monthlyStats.length)}件
+                  {Math.round(analyticsData.monthlyStats.reduce((sum: number, m: MonthlyStats) => sum + m.count, 0) / analyticsData.monthlyStats.length)}件
                 </p>
               </div>
               <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
                 <p className="text-sm text-gray-400 font-bold mb-1">最高記録</p>
                 <p className="text-2xl font-black text-yellow-300">
-                  {Math.max(...monthlyStats.map(m => m.count))}件
+                  {Math.max(...analyticsData.monthlyStats.map((m: MonthlyStats) => m.count))}件
                 </p>
               </div>
             </div>

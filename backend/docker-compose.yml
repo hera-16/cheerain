@@ -12,7 +12,7 @@ services:
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./setup_database.sql:/docker-entrypoint-initdb.d/setup_database.sql
@@ -31,6 +31,8 @@ services:
       dockerfile: Dockerfile
     container_name: cheerain-api
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: mysql
@@ -43,6 +45,8 @@ services:
       SERVER_PORT: 8080
     ports:
       - "${SERVER_PORT:-8080}:8080"
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
@@ -57,6 +61,8 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
+  uploads_data:
     driver: local
 
 networks:
