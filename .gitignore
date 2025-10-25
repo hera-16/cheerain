@@ -55,3 +55,10 @@ backend/uploads/
 
 # Backup files
 *.bak
+
+# Hardhat build artifacts
+artifacts/
+cache/
+
+# Firebase (not used)
+firebase.json
