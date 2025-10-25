@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
-import { db, functions } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '@/contexts/AuthContext';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
 import { uploadImage, generateFileName } from '@/lib/uploadImage';
 import { Player } from '@/types/player';
+import { api } from '@/lib/api';
 
 type PaymentMethod = 'credit' | 'paypay' | 'aupay';
 
@@ -32,25 +32,18 @@ export default function NFTMintForm() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [venueVerified, setVenueVerified] = useState<{ ok: boolean; venueName?: string | null } | null>(null);
 
-  // 選手データを取得
+  // 選手データを取得（REST APIから）
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
-        // インデックス不要なシンプルなクエリ
-        const snapshot = await getDocs(collection(db, 'players'));
-        const playersList = snapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate() || new Date(),
-          })) as Player[];
-
-        // クライアント側でフィルタとソート
-        const activePlayers = playersList
-          .filter(p => p.isActive)
-          .sort((a, b) => a.number - b.number);
-
-        setPlayers(activePlayers);
+        const response = await api.get<Player[]>('/players');
+        if (response.success && response.data) {
+          // アクティブな選手のみフィルタして番号順にソート
+          const activePlayers = response.data
+            .filter(p => p.isActive)
+            .sort((a, b) => a.number - b.number);
+          setPlayers(activePlayers);
+        }
       } catch (error) {
         console.error('選手データの取得エラー:', error);
       } finally {
@@ -59,7 +52,6 @@ export default function NFTMintForm() {
     };
 
     fetchPlayers();
-    // nothing further to fetch here for venue codes; verification is done via callable function
   }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,24 +109,22 @@ export default function NFTMintForm() {
         imageUrl = await uploadImage(formData.image, storagePath);
       }
 
-      // Firestoreに応援メッセージNFTデータを保存
-      await addDoc(collection(db, 'nfts'), {
+      // REST APIを使用してNFTを発行
+      const response = await api.post('/nfts', {
         title: formData.title,
         message: formData.message,
         playerName: formData.playerName,
         imageUrl: imageUrl, // Storage URLまたはBase64（デフォルト画像の場合）
-        creatorAddress: user.email,
-        creatorUid: user.uid,
-        creatorUserId: userData?.userId || '',
         paymentAmount: parseFloat(paymentAmount),
         paymentMethod: paymentMethod,
         venueId: venueId || null, // 会場ID（任意）
         isVenueAttendee: venueId ? true : false, // 現地参加フラグ
-        createdAt: serverTimestamp(),
       });
 
-      const attendeeStatus = venueId ? '\n🏟️ 現地参加サポーター認定！' : '';
-      alert(`NFTを発行しました！\n支払金額: ¥${paymentAmount}\n支払方法: ${paymentMethod === 'credit' ? 'クレジットカード' : paymentMethod === 'paypay' ? 'PayPay' : 'auPay'}${attendeeStatus}`);
+      if (response.success) {
+        const attendeeStatus = venueId ? '\n🏟️ 現地参加サポーター認定！' : '';
+        alert(`NFTを発行しました！\n支払金額: ¥${paymentAmount}\n支払方法: ${paymentMethod === 'credit' ? 'クレジットカード' : paymentMethod === 'paypay' ? 'PayPay' : 'auPay'}${attendeeStatus}`);
+      }
 
       // フォームをリセット
       setFormData({

@@ -3,12 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 // import Link from 'next/link';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import QRCode from 'qrcode';
 import { uploadImage, generateFileName } from '@/lib/uploadImage';
+import { api } from '@/lib/api';
 
 interface NFT {
   id: string;
@@ -80,24 +79,16 @@ export default function MyPage() {
 
   const fetchUserNFTs = async (userId: string) => {
     try {
-      // Firestoreから自分が発行したNFTを取得
-      const nftsRef = collection(db, 'nfts');
-      const q = query(
-        nftsRef,
-        where('creatorUid', '==', userId)
-      );
-      const querySnapshot = await getDocs(q);
+      // REST APIから自分が発行したNFTを取得
+      const response = await api.get<{ content: NFT[] }>('/nfts/my');
 
-      const fetchedNFTs: NFT[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      })) as NFT[];
-
-      // クライアント側で日付順にソート
-      fetchedNFTs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      setNfts(fetchedNFTs);
+      if (response.success && response.data) {
+        const fetchedNFTs: NFT[] = response.data.content.map(nft => ({
+          ...nft,
+          createdAt: new Date(nft.createdAt),
+        }));
+        setNfts(fetchedNFTs);
+      }
     } catch (error) {
       console.error('NFT取得エラー:', error);
       setNfts([]);

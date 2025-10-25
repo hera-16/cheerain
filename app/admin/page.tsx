@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import { api } from '@/lib/api';
 
 interface Stats {
   totalNFTs: number;
@@ -60,34 +61,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // NFT統計
-        const nftsSnapshot = await getDocs(collection(db, 'nfts'));
-        const nfts = nftsSnapshot.docs.map(doc => doc.data());
+        // REST APIから統計データを取得
+        const response = await api.get<Stats>('/analytics');
 
-        // ユーザー統計
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-
-        // 支払い総額
-        const totalPayments = nfts.reduce((sum, nft) => sum + (nft.paymentAmount || 0), 0);
-
-        // 会場参加者数
-        const venueAttendees = nfts.filter(nft => nft.isVenueAttendee).length;
-
-        // 今月のNFT発行数
-        const now = new Date();
-        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const thisMonthNFTs = nfts.filter(nft => {
-          const createdAt = nft.createdAt?.toDate();
-          return createdAt && createdAt >= thisMonthStart;
-        }).length;
-
-        setStats({
-          totalNFTs: nfts.length,
-          totalUsers: usersSnapshot.size,
-          totalPayments,
-          venueAttendees,
-          thisMonthNFTs,
-        });
+        if (response.success && response.data) {
+          setStats(response.data);
+        }
       } catch (error) {
         console.error('統計データの取得エラー:', error);
       } finally {
