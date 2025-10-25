@@ -125,21 +125,44 @@ export const api = {
     }
 
     try {
+      console.log('📤 [Upload] Starting upload to:', `${API_BASE_URL}${endpoint}`);
+      console.log('📤 [Upload] Form data entries:', Array.from(formData.entries()));
+
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers,
         body: formData,
       });
 
-      const data: ApiResponse<T> = await response.json();
+      console.log('📥 [Upload] Response status:', response.status, response.statusText);
+
+      // レスポンステキストを取得
+      const responseText = await response.text();
+      console.log('📥 [Upload] Response text:', responseText);
+
+      // JSONパースを試みる
+      let data: ApiResponse<T>;
+      try {
+        data = JSON.parse(responseText);
+        console.log('📥 [Upload] Parsed data:', data);
+      } catch (parseError) {
+        console.error('❌ [Upload] JSONパースエラー:', parseError);
+        console.error('❌ [Upload] レスポンステキスト:', responseText);
+        throw new Error('サーバーからの応答が不正です: ' + responseText.substring(0, 100));
+      }
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'ファイルのアップロードに失敗しました');
+        console.error('❌ [Upload] Response not OK:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+        throw new Error(data.error?.message || data.message || 'ファイルのアップロードに失敗しました');
       }
 
       return data;
     } catch (error) {
-      console.error('Upload Error:', error);
+      console.error('❌ [Upload] Exception:', error);
       throw error;
     }
   },
