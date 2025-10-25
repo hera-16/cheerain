@@ -21,12 +21,18 @@ public class NftService {
 
     private final NftRepository nftRepository;
     private final UserRepository userRepository;
+    private final ContentModerationService contentModerationService;
 
     @Transactional
     public NftResponse createNft(NftCreateRequest request, Authentication authentication) {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         User user = userRepository.findById(userDetails.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("ユーザーが見つかりません"));
+
+        // コンテンツモデレーションチェック
+        if (contentModerationService.checkTextContent(request.getTitle(), request.getMessage())) {
+            throw new IllegalArgumentException("不適切な内容が含まれています。タイトルやメッセージに暴言や過度な批判的な表現が含まれていないか確認してください。");
+        }
 
         Nft nft = new Nft();
         nft.setTitle(request.getTitle());
