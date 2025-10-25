@@ -33,16 +33,22 @@ export default function NFTMintForm() {
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
+        console.log('🔍 選手データ取得開始...');
         const response = await api.get<Player[]>('/players');
+        console.log('📊 選手データAPI レスポンス:', response);
+        
         if (response.success && response.data) {
           // アクティブな選手のみフィルタして番号順にソート
           const activePlayers = response.data
             .filter(p => p.isActive)
             .sort((a, b) => a.number - b.number);
+          console.log('✅ アクティブな選手:', activePlayers);
           setPlayers(activePlayers);
+        } else {
+          console.error('❌ 選手データの取得に失敗:', response);
         }
       } catch (error) {
-        console.error('選手データの取得エラー:', error);
+        console.error('❌ 選手データの取得エラー:', error);
       } finally {
         setLoadingPlayers(false);
       }
@@ -113,17 +119,28 @@ export default function NFTMintForm() {
         }
       }
 
-      // REST APIを使用してNFTを発行
-      const response = await api.post('/nfts', {
+      // 支払方法をバックエンド形式に変換
+      const backendPaymentMethod = 
+        paymentMethod === 'credit' ? 'CREDIT_CARD' :
+        paymentMethod === 'paypay' ? 'BANK_TRANSFER' :
+        'CASH';
+
+      // 送信するデータを準備
+      const nftData = {
         title: formData.title,
         message: formData.message,
         playerName: formData.playerName,
         imageUrl: imageUrl, // Storage URLまたはBase64（デフォルト画像の場合）
         paymentAmount: parseFloat(paymentAmount),
-        paymentMethod: paymentMethod,
+        paymentMethod: backendPaymentMethod,
         venueId: venueId || null, // 会場ID（任意）
         isVenueAttendee: venueId ? true : false, // 現地参加フラグ
-      });
+      };
+
+      console.log('🚀 NFT発行データ:', nftData);
+
+      // REST APIを使用してNFTを発行
+      const response = await api.post('/nfts', nftData);
 
       if (response.success) {
         const attendeeStatus = venueId ? '\n🏟️ 現地参加サポーター認定！' : '';

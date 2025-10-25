@@ -173,7 +173,7 @@ export default function AdminDashboard() {
         <h2 className="text-3xl font-black text-yellow-300 mb-6 tracking-wider">
           🚀 クイックアクション
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <a
             href="/admin/users"
             className="block bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-center hover:from-blue-700 hover:to-blue-800 transition shadow-lg border-2 border-yellow-400"
@@ -194,6 +194,13 @@ export default function AdminDashboard() {
           >
             <div className="text-4xl mb-2">📊</div>
             <p className="text-xl font-black text-yellow-300">詳細分析</p>
+          </a>
+          <a
+            href="/admin/venue-codes"
+            className="block bg-gradient-to-r from-green-600 to-green-700 p-6 text-center hover:from-green-700 hover:to-green-800 transition shadow-lg border-2 border-yellow-400"
+          >
+            <div className="text-4xl mb-2">🎫</div>
+            <p className="text-xl font-black text-yellow-300">現地コード</p>
           </a>
         </div>
       </div>
