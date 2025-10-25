@@ -71,7 +71,7 @@ export default function LoginPage() {
           if (response.data.user.role?.toUpperCase() === 'ADMIN') {
             window.location.href = '/admin';
           } else {
-            window.location.href = '/mypage';
+            window.location.href = '/blockchain-mint';
           }
         }
       }
@@ -92,12 +92,6 @@ export default function LoginPage() {
           </Link>
           
           <nav className="flex items-center gap-2">
-            <Link
-              href="/nfts"
-              className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
-            >
-              NFT一覧
-            </Link>
             <Link
               href="/mypage"
               className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"

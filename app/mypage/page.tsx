@@ -2,20 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-// import Link from 'next/link';
+import { useAccount, useReadContract } from 'wagmi';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
-import QRCode from 'qrcode';
-import { api } from '@/lib/api';
+import { getContractConfig } from '@/lib/contract';
+import { generateDefaultImageDataURL } from '@/lib/defaultImages';
+import WalletConnectButton from '@/components/WalletConnectButton';
 
-interface NFT {
-  id: string;
+interface NFTMetadata {
   title: string;
-  playerName: string;
   message: string;
-  createdAt: Date;
-  imageUrl?: string;
-  isVenueAttendee?: boolean;
+  playerName: string;
+  imageUrl: string;
+  creator: string;
+  paymentAmount: string;
+  createdAt: string;
+  isVenueAttendee: boolean;
+}
+
+interface NFTWithId {
+  tokenId: bigint;
+  metadata: NFTMetadata;
 }
 
 interface UserData {
@@ -26,17 +33,33 @@ interface UserData {
 
 export default function MyPage() {
   const { user, userData, loading, logout } = useAuth();
-  const [nfts, setNfts] = useState<NFT[]>([]);
+  const { address, isConnected } = useAccount();
+  const [mounted, setMounted] = useState(false);
+  const [nfts, setNfts] = useState<NFTWithId[]>([]);
+  const [loadingNFTs, setLoadingNFTs] = useState(false);
   const [profileImage, setProfileImage] = useState<string>('');
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
-  const [qrCodeDataURL, setQrCodeDataURL] = useState<string>('');
   const [monthlyNFTCount, setMonthlyNFTCount] = useState(0);
   const router = useRouter();
+
+  const contractConfig = getContractConfig();
 
   // ユーザーの称号（NFT数に応じて決定）
   const titles = ['初心者サポーター', 'ブロンズファン', 'シルバーファン', 'ゴールドファン'];
   const [userTitle, setUserTitle] = useState(titles[0]);
+
+  // ユーザーが所有するNFTのトークンIDリストを取得
+  const { data: tokenIds } = useReadContract({
+    ...contractConfig,
+    functionName: 'getNFTsByUser',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && !!contractConfig,
+    },
+  });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -45,11 +68,44 @@ export default function MyPage() {
     }
   }, [user, loading, router]);
 
+  // トークンIDからメタデータを取得
   useEffect(() => {
-    if (user) {
-      fetchUserNFTs(user.uid);
+    if (!tokenIds || !address) {
+      setNfts([]);
+      return;
     }
-  }, [user]);
+
+    const fetchMetadata = async () => {
+      setLoadingNFTs(true);
+      try {
+        const nftPromises = (tokenIds as bigint[]).map(async (tokenId) => {
+          const response = await fetch(
+            `/api/blockchain/nft-metadata?tokenId=${tokenId.toString()}`
+          );
+
+          if (!response.ok) {
+            console.error(`Failed to fetch metadata for token ${tokenId}`);
+            return null;
+          }
+
+          const metadata = await response.json();
+          return {
+            tokenId,
+            metadata: metadata.data as NFTMetadata,
+          };
+        });
+
+        const results = await Promise.all(nftPromises);
+        setNfts(results.filter((nft): nft is NFTWithId => nft !== null));
+      } catch (error) {
+        console.error('Error fetching NFT metadata:', error);
+      } finally {
+        setLoadingNFTs(false);
+      }
+    };
+
+    fetchMetadata();
+  }, [tokenIds, address]);
 
   useEffect(() => {
     // userDataからプロフィール画像を読み込む
@@ -71,62 +127,26 @@ export default function MyPage() {
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthlyCount = nfts.filter(nft => {
-      return nft.createdAt >= thisMonthStart;
+      const nftDate = new Date(parseInt(nft.metadata.createdAt) * 1000);
+      return nftDate >= thisMonthStart;
     }).length;
     setMonthlyNFTCount(monthlyCount);
   }, [nfts, titles]);
 
-  const fetchUserNFTs = async (userId: string) => {
-    try {
-      // REST APIから自分が発行したNFTを取得
-      const response = await api.get<{ content: NFT[] }>('/nfts/my');
-
-      if (response.success && response.data) {
-        const fetchedNFTs: NFT[] = response.data.content.map(nft => ({
-          ...nft,
-          createdAt: new Date(nft.createdAt),
-        }));
-        setNfts(fetchedNFTs);
-      }
-    } catch (error) {
-      console.error('NFT取得エラー:', error);
-      setNfts([]);
+  // 画像URLを解決する関数
+  const resolveImageUrl = (imageUrl: string): string => {
+    if (imageUrl.startsWith('default:')) {
+      const imageId = parseInt(imageUrl.replace('default:', ''), 10);
+      return generateDefaultImageDataURL(imageId);
     }
-  };
-
-  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    setIsUploadingImage(true);
-
-    try {
-      // Java APIにアップロード
-      const formDataObj = new FormData();
-      formDataObj.append('file', file);
-      formDataObj.append('type', 'profile');
-
-      const uploadResponse = await api.uploadFile<{ url: string; fileName: string }>('/upload/image', formDataObj);
-
-      if (uploadResponse.success && uploadResponse.data) {
-        const imageUrl = uploadResponse.data.url;
-
-        // REST APIでユーザー情報を更新
-        await api.patch('/users/me', {
-          profileImage: imageUrl
-        });
-
-        setProfileImage(imageUrl);
-        alert('プロフィール写真を更新しました！');
-      } else {
-        throw new Error('画像のアップロードに失敗しました');
-      }
-    } catch (error) {
-      console.error('プロフィール写真アップロードエラー:', error);
-      alert('プロフィール写真の更新に失敗しました');
-    } finally {
-      setIsUploadingImage(false);
+    if (imageUrl.startsWith('nft:')) {
+      const fileName = imageUrl.replace('nft:', '');
+      return `${process.env.NEXT_PUBLIC_API_BASE_URL}/upload/nfts/${fileName}`;
     }
+    if (imageUrl.startsWith('nfts/') || imageUrl.startsWith('profiles/') || imageUrl.startsWith('general/')) {
+      return `${process.env.NEXT_PUBLIC_API_BASE_URL}/upload/${imageUrl}`;
+    }
+    return imageUrl;
   };
 
   const handleLogout = async () => {
@@ -135,37 +155,6 @@ export default function MyPage() {
       router.push('/login');
     } catch (error) {
       console.error('ログアウトエラー:', error);
-    }
-  };
-
-  const generateQRCode = async () => {
-    if (!user) return;
-
-    try {
-      // QRコードに含めるデータ
-      const qrData = JSON.stringify({
-        userId: userData?.userId || user.uid,
-        email: user.email,
-        monthlyNFTCount: monthlyNFTCount,
-        totalNFTCount: nfts.length,
-        timestamp: new Date().toISOString(),
-      });
-
-      // QRコードを生成
-      const qrDataURL = await QRCode.toDataURL(qrData, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#B91C1C', // 赤色
-          light: '#FEF3C7', // 黄色背景
-        },
-      });
-
-      setQrCodeDataURL(qrDataURL);
-      setShowQRCode(true);
-    } catch (error) {
-      console.error('QRコード生成エラー:', error);
-      alert('QRコードの生成に失敗しました');
     }
   };
 
@@ -192,31 +181,22 @@ export default function MyPage() {
         {/* ユーザー情報セクション */}
         <div className="bg-white shadow-2xl p-4 sm:p-6 mb-6 sm:mb-8 border-2 sm:border-4 border-red-700">
           <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-4">
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-yellow-100 border-2 sm:border-4 border-red-700 flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition flex-shrink-0" onClick={() => document.getElementById('profileImageInput')?.click()}>
-              {profileImage ? (
-                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-3xl sm:text-4xl">👤</span>
-              )}
-              {isUploadingImage && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                  <span className="text-white text-xs">...</span>
-                </div>
-              )}
+            <div className="relative">
+              <div
+                className="relative w-32 h-32 sm:w-40 sm:h-40 bg-yellow-100 border-4 border-red-700 flex items-center justify-center overflow-hidden flex-shrink-0 rounded-full"
+              >
+                {profileImage ? (
+                  <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-6xl">👤</span>
+                )}
+              </div>
             </div>
-            <input
-              id="profileImageInput"
-              type="file"
-              accept="image/*"
-              onChange={handleProfileImageChange}
-              className="hidden"
-            />
             <div className="text-center sm:text-left flex-1 w-full">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-red-700 tracking-wider break-all">{user?.email}</h2>
               <div className="mt-2 inline-flex items-center px-3 py-1 text-xs sm:text-sm font-black bg-yellow-100 text-red-700 border-2 border-yellow-400 tracking-wide">
                 🏆 {userTitle}
               </div>
-              <p className="text-xs text-gray-700 mt-2 font-medium">📷 画像をクリックして変更</p>
             </div>
           </div>
 
@@ -238,53 +218,31 @@ export default function MyPage() {
               <p className="text-2xl sm:text-3xl font-black text-red-700">{nfts.length * 100}</p>
             </div>
           </div>
-
-          {/* QRコード表示ボタン */}
-          <div className="mt-6 text-center">
-            <button
-              onClick={generateQRCode}
-              className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-red-700 text-yellow-300 px-6 sm:px-8 py-3 sm:py-4 font-black tracking-wider hover:from-red-700 hover:to-red-800 transition border-2 sm:border-4 border-yellow-400 shadow-lg text-sm sm:text-base"
-            >
-              📱 店舗割引用QRコードを表示
-            </button>
-          </div>
         </div>
-
-        {/* QRコードモーダル */}
-        {showQRCode && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={() => setShowQRCode(false)}>
-            <div className="bg-white p-8 max-w-md w-full border-4 border-red-700 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="text-center">
-                <h3 className="text-2xl font-black text-red-700 mb-4 tracking-wider">店舗割引用QRコード</h3>
-                <div className="bg-yellow-50 p-6 border-4 border-yellow-400 mb-4">
-                  <img src={qrCodeDataURL} alt="QR Code" className="mx-auto" />
-                </div>
-                <div className="bg-gray-100 p-4 border-2 border-gray-300 mb-4 text-left">
-                  <p className="text-sm font-bold text-gray-900 mb-2">📊 あなたの応援データ</p>
-                  <p className="text-xs text-gray-700 font-medium mb-1">ユーザーID: {userData?.userId}</p>
-                  <p className="text-xs text-gray-700 font-medium mb-1">今月のNFT発行数: <span className="text-green-700 font-black">{monthlyNFTCount}枚</span></p>
-                  <p className="text-xs text-gray-700 font-medium">総NFT保有数: <span className="text-red-700 font-black">{nfts.length}枚</span></p>
-                </div>
-                <p className="text-xs text-gray-600 font-medium mb-4">
-                  このQRコードを加盟店で提示すると、NFT保有数に応じた割引が受けられます
-                </p>
-                <button
-                  onClick={() => setShowQRCode(false)}
-                  className="w-full bg-gray-700 text-white py-3 font-black hover:bg-gray-800 transition tracking-wider"
-                >
-                  閉じる
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* NFTコレクションセクション */}
         <div className="bg-white shadow-2xl p-4 sm:p-6 border-2 sm:border-4 border-red-700">
           <h3 className="text-lg sm:text-xl font-black text-red-700 mb-4 sm:mb-6 tracking-wider">あなたのNFTコレクション</h3>
 
-          {nfts.length === 0 ? (
+          {!mounted ? (
             <div className="text-center py-8 sm:py-12">
+              <p className="text-gray-900 mb-4 font-bold text-sm sm:text-base">読み込み中...</p>
+            </div>
+          ) : !isConnected ? (
+            <div className="text-center py-8 sm:py-12">
+              <div className="text-6xl mb-4">🔗</div>
+              <p className="text-gray-900 mb-4 font-bold text-sm sm:text-base">ウォレットを接続してください</p>
+              <p className="text-xs sm:text-sm text-gray-700 font-bold mb-6">ブロックチェーン上のNFTを表示するには、ウォレットの接続が必要です</p>
+              <WalletConnectButton />
+            </div>
+          ) : loadingNFTs ? (
+            <div className="text-center py-8 sm:py-12">
+              <div className="text-6xl mb-4">⏳</div>
+              <p className="text-gray-900 mb-4 font-bold text-sm sm:text-base">NFTを読み込み中...</p>
+            </div>
+          ) : nfts.length === 0 ? (
+            <div className="text-center py-8 sm:py-12">
+              <div className="text-6xl mb-4">📭</div>
               <p className="text-gray-900 mb-4 font-bold text-sm sm:text-base">まだNFTがありません</p>
               <p className="text-xs sm:text-sm text-gray-700 font-bold">選手に応援メッセージを送ってNFTを獲得しましょう!</p>
             </div>
@@ -292,28 +250,44 @@ export default function MyPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {nfts.map((nft) => (
                 <div
-                  key={nft.id}
+                  key={nft.tokenId.toString()}
                   className="border-2 sm:border-4 border-gray-300 overflow-hidden hover:border-red-700 transition"
                 >
-                  <div className="bg-gradient-to-br from-red-600 to-red-800 h-40 sm:h-48 flex items-center justify-center">
-                    {nft.imageUrl ? (
-                      <img src={nft.imageUrl} alt={nft.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-5xl sm:text-6xl">🎴</span>
-                    )}
+                  <div className="bg-gradient-to-br from-red-600 to-red-800 h-40 sm:h-48 flex items-center justify-center relative">
+                    <img
+                      src={resolveImageUrl(nft.metadata.imageUrl)}
+                      alt={nft.metadata.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-black">
+                      #{nft.tokenId.toString()}
+                    </div>
                   </div>
                   <div className="p-3 sm:p-4 bg-white">
                     <div className="mb-2 flex items-center gap-2 flex-wrap">
-                      <h4 className="font-black text-red-700 tracking-wide text-sm sm:text-base">{nft.title}</h4>
-                      {nft.isVenueAttendee && (
+                      <h4 className="font-black text-red-700 tracking-wide text-sm sm:text-base">{nft.metadata.title}</h4>
+                      {nft.metadata.isVenueAttendee && (
                         <span className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 font-black text-xs border-2 border-orange-600">
                           🏟️ 現地
                         </span>
                       )}
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-900 mb-1 font-bold">選手: {nft.playerName}</p>
-                    <p className="text-xs sm:text-sm text-gray-800 mb-2 line-clamp-2 font-bold">{nft.message}</p>
-                    <p className="text-xs text-gray-700 font-bold">{nft.createdAt.toLocaleDateString('ja-JP')}</p>
+                    <p className="text-xs sm:text-sm text-gray-900 mb-1 font-bold">選手: {nft.metadata.playerName}</p>
+                    <p className="text-xs sm:text-sm text-gray-800 mb-2 line-clamp-2 font-bold">{nft.metadata.message}</p>
+                    <p className="text-xs text-gray-700 font-bold">
+                      {new Date(parseInt(nft.metadata.createdAt) * 1000).toLocaleDateString('ja-JP')}
+                    </p>
+                    <div className="mt-3 pt-2 border-t">
+                      <a
+                        href={`https://amoy.polygonscan.com/token/${contractConfig?.address}?a=${nft.tokenId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 text-xs flex items-center gap-1"
+                      >
+                        <span>🔍</span>
+                        <span>Polygonscanで確認</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))}

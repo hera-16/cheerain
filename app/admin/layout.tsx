@@ -87,7 +87,7 @@ export default function AdminLayout({
                 分析
               </Link>
               <Link
-                href="/"
+                href="/blockchain-mint"
                 className="px-4 py-2 bg-gray-700 text-yellow-300 hover:bg-gray-600 transition font-bold tracking-wide"
               >
                 ユーザー画面へ
