@@ -61,21 +61,21 @@ export const api = {
   get: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'GET' }),
 
   // POST
-  post: <T>(endpoint: string, body: any) =>
+  post: <T>(endpoint: string, body: unknown) =>
     fetchApi<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
 
   // PUT
-  put: <T>(endpoint: string, body: any) =>
+  put: <T>(endpoint: string, body: unknown) =>
     fetchApi<T>(endpoint, {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
 
   // PATCH
-  patch: <T>(endpoint: string, body: any) =>
+  patch: <T>(endpoint: string, body: unknown) =>
     fetchApi<T>(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(body),
