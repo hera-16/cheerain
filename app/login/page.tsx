@@ -59,7 +59,9 @@ export default function LoginPage() {
         if (response.success && response.data) {
           // JWTトークンをlocalStorageに保存
           localStorage.setItem('authToken', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
+          // uidをidと同じ値で追加（マイページとの互換性のため）
+          const userWithUid = { ...response.data.user, uid: response.data.user.id };
+          localStorage.setItem('user', JSON.stringify(userWithUid));
 
           // マイページにリダイレクト
           router.push('/mypage');
