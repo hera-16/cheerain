@@ -28,12 +28,18 @@ createAppKit({
   metadata: {
     name: 'CheeRain',
     description: 'ファンの声を選手に届ける、新しい応援のカタチ',
-    url: 'https://cheerain.vercel.app', // あなたのドメインに変更
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://cheerain.vercel.app',
     icons: ['https://cheerain.vercel.app/icon.png']
   },
   features: {
-    analytics: true, // オプション: アナリティクス有効化
+    analytics: true,
+    email: false,
+    socials: false,
+    onramp: false,
+    swaps: false,
   },
+  enableWalletGuide: true,
+  enableNetworkView: true,
 })
 
 export function Web3Provider({ children }: { children: ReactNode }) {
