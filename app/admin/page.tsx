@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, addDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
 
 interface Stats {
   totalNFTs: number;
@@ -23,7 +23,39 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<any[]>([]);
   const [newCode, setNewCode] = useState('');
+  const [venueName, setVenueName] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // 初回ロードで既存の有効な現地コードを取得（最新1件のみ）
+  useEffect(() => {
+    const loadCodes = async () => {
+      try {
+        const q = query(collection(db, 'venueCodes'), orderBy('createdAt','desc'));
+        const snap = await getDocs(q);
+        const nowDate = new Date();
+        if (snap.docs.length === 0) {
+          setCodes([]);
+          return;
+        }
+        // keep only the latest non-expired document
+        let latest: any = null;
+        for (const d of snap.docs) {
+          const data = d.data();
+          const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
+          if (expiresAt && expiresAt < nowDate) {
+            await deleteDoc(doc(db, 'venueCodes', d.id));
+            continue;
+          }
+          latest = { id: d.id, ...data };
+          break;
+        }
+        setCodes(latest ? [latest] : []);
+      } catch (err) {
+        console.error('現地コード取得エラー', err);
+      }
+    };
+    loadCodes();
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -195,6 +227,13 @@ export default function AdminDashboard() {
               className="w-full px-4 py-2 border-2 border-gray-300"
               placeholder="空欄の場合はランダム生成されます（5桁の数字推奨）"
             />
+            <label className="block text-sm font-bold text-gray-800 mb-2 mt-3">会場名（任意）</label>
+            <input
+              value={venueName}
+              onChange={(e) => setVenueName(e.target.value)}
+              className="w-full px-4 py-2 border-2 border-gray-300"
+              placeholder="例: 東京スタジアム"
+            />
             <p className="text-xs text-gray-500 mt-2">5桁の数字を推奨（互換性のため）。</p>
           </div>
           <div className="flex items-end">
@@ -206,28 +245,43 @@ export default function AdminDashboard() {
                   const codeVal = newCode && newCode.trim().length > 0 ? newCode.trim() : String(Math.floor(10000 + Math.random() * 90000));
                   const now = new Date();
                   const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                  await addDoc(collection(db, 'venueCodes'), {
-                    code: codeVal,
-                    createdAt: serverTimestamp(),
-                    expiresAt: Timestamp.fromDate(expires),
-                    createdBy: 'admin',
-                  });
+                  // 既存コードがあれば更新して1つだけ保持
+                  if (codes && codes.length > 0) {
+                    const existing = codes[0];
+                    const ref = doc(db, 'venueCodes', existing.id);
+                    await updateDoc(ref, {
+                      code: codeVal,
+                      venueName: venueName || existing.venueName || null,
+                      createdAt: serverTimestamp(),
+                      expiresAt: Timestamp.fromDate(expires),
+                      createdBy: 'admin',
+                    });
+                  } else {
+                    await addDoc(collection(db, 'venueCodes'), {
+                      code: codeVal,
+                      venueName: venueName || null,
+                      createdAt: serverTimestamp(),
+                      expiresAt: Timestamp.fromDate(expires),
+                      createdBy: 'admin',
+                    });
+                  }
                   setNewCode('');
-                  // 再取得
+                  // 再取得（最新1件）
                   const q = query(collection(db, 'venueCodes'), orderBy('createdAt','desc'));
                   const snap = await getDocs(q);
                   const nowDate = new Date();
-                  const items: any[] = [];
-                  for(const d of snap.docs){
+                  let latest: any = null;
+                  for (const d of snap.docs) {
                     const data = d.data();
                     const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
-                    if (expiresAt && expiresAt < nowDate){
+                    if (expiresAt && expiresAt < nowDate) {
                       await deleteDoc(doc(db, 'venueCodes', d.id));
                       continue;
                     }
-                    items.push({ id: d.id, ...data });
+                    latest = { id: d.id, ...data };
+                    break;
                   }
-                  setCodes(items);
+                  setCodes(latest ? [latest] : []);
                 } catch (err) {
                   console.error('コード作成エラー', err);
                 } finally {
@@ -236,7 +290,7 @@ export default function AdminDashboard() {
               }}
               className="w-full bg-red-700 text-yellow-300 font-black py-2 px-4 border-2 border-yellow-400 hover:bg-red-800"
             >
-              {creating ? '作成中...' : 'コードを作成'}
+              {creating ? '作成中...' : codes && codes.length > 0 ? 'コードを更新' : 'コードを作成'}
             </button>
           </div>
         </div>
@@ -244,37 +298,41 @@ export default function AdminDashboard() {
         <div>
           <h3 className="text-lg font-bold text-gray-800 mb-3">有効な現地コード</h3>
           <div className="space-y-3">
-            {codes.length === 0 ? (
+            {(!codes || codes.length === 0) ? (
               <p className="text-sm text-gray-600">現在有効なコードはありません。</p>
             ) : (
-              codes.map((c) => (
-                <div key={c.id} className="flex items-center justify-between bg-gray-50 p-3 border-2 border-gray-200">
-                  <div>
-                    <div className="font-black text-lg text-red-700 tracking-wider">{c.code}</div>
-                    <div className="text-xs text-gray-600">有効期限: {c.expiresAt?.toDate ? c.expiresAt.toDate().toLocaleString() : '-'}</div>
+              (() => {
+                const c = codes[0];
+                return (
+                  <div key={c.id} className="flex items-center justify-between bg-gray-50 p-3 border-2 border-gray-200">
+                    <div>
+                      <div className="font-black text-lg text-red-700 tracking-wider">{c.code}</div>
+                      <div className="text-sm text-gray-700">会場名: {c.venueName || '-'}</div>
+                      <div className="text-xs text-gray-600">有効期限: {c.expiresAt?.toDate ? c.expiresAt.toDate().toLocaleString() : '-'}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          try{
+                            await navigator.clipboard.writeText(c.code);
+                            alert('コードをコピーしました');
+                          }catch(e){ console.error(e); }
+                        }}
+                        className="px-3 py-2 bg-yellow-400 font-bold text-red-800 border-2 border-red-700"
+                      >コピー</button>
+                      <button
+                        onClick={async () => {
+                          try{
+                            await deleteDoc(doc(db,'venueCodes',c.id));
+                            setCodes([]);
+                          }catch(e){ console.error(e); }
+                        }}
+                        className="px-3 py-2 bg-gray-300 font-bold text-gray-800 border-2 border-gray-400"
+                      >削除</button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        try{
-                          await navigator.clipboard.writeText(c.code);
-                          alert('コードをコピーしました');
-                        }catch(e){ console.error(e); }
-                      }}
-                      className="px-3 py-2 bg-yellow-400 font-bold text-red-800 border-2 border-red-700"
-                    >コピー</button>
-                    <button
-                      onClick={async () => {
-                        try{
-                          await deleteDoc(doc(db,'venueCodes',c.id));
-                          setCodes(prev=>prev.filter(p=>p.id!==c.id));
-                        }catch(e){ console.error(e); }
-                      }}
-                      className="px-3 py-2 bg-gray-300 font-bold text-gray-800 border-2 border-gray-400"
-                    >削除</button>
-                  </div>
-                </div>
-              ))
+                );
+              })()
             )}
           </div>
         </div>

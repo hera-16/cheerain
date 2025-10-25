@@ -42,3 +42,42 @@ exports.deleteExpiredVenueCodes = functions.pubsub
       return null;
     }
   });
+
+    // Callable function to verify a submitted code against the active admin code
+    exports.verifyVenueCode = functions.https.onCall(async (data, context) => {
+      const inputCode = (data && data.code) ? String(data.code).trim() : '';
+      if (!inputCode) {
+        return { match: false, reason: 'no-code' };
+      }
+
+      try {
+        const now = admin.firestore.Timestamp.now();
+        // Find latest non-expired venue code (order by createdAt desc)
+        const snap = await db.collection('venueCodes').orderBy('createdAt', 'desc').limit(10).get();
+        if (snap.empty) {
+          return { match: false, reason: 'no-active-code' };
+        }
+
+        // pick first non-expired document
+        for (const d of snap.docs) {
+          const dataDoc = d.data();
+          const expiresAt = dataDoc.expiresAt;
+          // if expiresAt is missing treat as non-matching
+          if (!expiresAt) continue;
+          if (expiresAt.toMillis && expiresAt.toMillis() <= now.toMillis()) {
+            // expired, skip
+            continue;
+          }
+          const storedCode = String(dataDoc.code || '').trim();
+          const venueName = dataDoc.venueName || null;
+          if (!storedCode) continue;
+          const match = storedCode === inputCode;
+          return { match, venueName };
+        }
+
+        return { match: false, reason: 'no-active-code' };
+      } catch (err) {
+        console.error('verifyVenueCode error:', err);
+        return { match: false, reason: 'internal-error' };
+      }
+    });

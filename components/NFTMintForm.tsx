@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { db, functions } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '@/contexts/AuthContext';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
 import { uploadImage, generateFileName } from '@/lib/uploadImage';
@@ -28,6 +29,8 @@ export default function NFTMintForm() {
   const [selectedDefaultImage, setSelectedDefaultImage] = useState<number | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [venueVerified, setVenueVerified] = useState<{ ok: boolean; venueName?: string | null } | null>(null);
 
   // 選手データを取得
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function NFTMintForm() {
     };
 
     fetchPlayers();
+    // nothing further to fetch here for venue codes; verification is done via callable function
   }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -371,18 +375,61 @@ export default function NFTMintForm() {
             <label htmlFor="venueId" className="block text-sm font-black mb-2 text-red-700">
               会場ID（5桁）
             </label>
-            <input
-              type="text"
-              id="venueId"
-              value={venueId}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 5);
-                setVenueId(value);
-              }}
-              className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-lg tracking-widest text-center text-gray-900"
-              placeholder="12345"
-              maxLength={5}
-            />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  id="venueId"
+                  value={venueId}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+                    setVenueId(value);
+                  }}
+                  className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-lg tracking-widest text-center text-gray-900"
+                  placeholder="12345"
+                  maxLength={5}
+                />
+                <div className="w-48">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 bg-yellow-400 font-bold text-red-800 border-2 border-red-700"
+                      onClick={async () => {
+                        if (!venueId || venueId.length === 0) {
+                          alert('会場IDを入力してください（5桁）');
+                          return;
+                        }
+                        setIsVerifying(true);
+                        setVenueVerified(null);
+                        try {
+                          if (!functions) throw new Error('functions-not-initialized');
+                          const verify = httpsCallable(functions, 'verifyVenueCode');
+                          const res = await verify({ code: venueId });
+                          const result = (res.data || {}) as { match?: boolean; venueName?: string };
+                          if (result.match) {
+                            setVenueVerified({ ok: true, venueName: result.venueName || null });
+                            alert('コードが一致しました — 現地参加が認証されました');
+                          } else {
+                            setVenueVerified({ ok: false });
+                            alert('コードが一致しません');
+                          }
+                        } catch (err) {
+                          console.error('照合エラー', err);
+                          alert('照合に失敗しました');
+                        } finally {
+                          setIsVerifying(false);
+                        }
+                      }}
+                    >
+                      {isVerifying ? '照合中...' : '照合'}
+                    </button>
+                  </div>
+                  {venueVerified && (
+                    <div className={`mt-2 text-sm ${venueVerified.ok ? 'text-green-700' : 'text-red-700'}`}>
+                      {venueVerified.ok ? `照合済み: ${venueVerified.venueName || '会場名なし'}` : '不一致です'}
+                    </div>
+                  )}
+                </div>
+              </div>
             <p className="text-xs text-gray-700 mt-1 font-medium">
               ※ 会場にいない場合は空欄のまま発行できます
             </p>
