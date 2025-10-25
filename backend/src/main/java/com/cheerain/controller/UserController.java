@@ -11,7 +11,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -54,5 +57,21 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String id) {
         userService.deleteUser(id);
         return ResponseEntity.ok(ApiResponse.success(null, "ユーザーを削除しました"));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        String userId = authentication.getName();
+        String profileImage = request.get("profileImage");
+
+        if (profileImage == null || profileImage.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("BAD_REQUEST", "プロフィール画像URLが必要です"));
+        }
+
+        UserResponse user = userService.updateProfileImage(userId, profileImage);
+        return ResponseEntity.ok(ApiResponse.success(user, "プロフィール画像を更新しました"));
     }
 }

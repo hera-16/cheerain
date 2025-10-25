@@ -3,11 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
-import { functions } from '@/lib/firebase';
-import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '@/contexts/AuthContext';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
-import { uploadImage, generateFileName } from '@/lib/uploadImage';
 import { Player } from '@/types/player';
 import { api } from '@/lib/api';
 
@@ -103,10 +100,17 @@ export default function NFTMintForm() {
         // デフォルト画像が選択されている場合（Base64のまま保存）
         imageUrl = generateDefaultImageDataURL(selectedDefaultImage);
       } else if (formData.image) {
-        // 自前の画像がアップロードされている場合 → Firebase Storageにアップロード
-        const fileName = generateFileName(formData.image.name);
-        const storagePath = `nfts/${user.uid}/${fileName}`;
-        imageUrl = await uploadImage(formData.image, storagePath);
+        // 自前の画像がアップロードされている場合 → Java APIにアップロード
+        const formDataObj = new FormData();
+        formDataObj.append('file', formData.image);
+        formDataObj.append('type', 'nft');
+
+        const uploadResponse = await api.uploadFile('/upload/image', formDataObj);
+        if (uploadResponse.success && uploadResponse.data) {
+          imageUrl = uploadResponse.data.url;
+        } else {
+          throw new Error('画像のアップロードに失敗しました');
+        }
       }
 
       // REST APIを使用してNFTを発行
@@ -391,13 +395,15 @@ export default function NFTMintForm() {
                         setIsVerifying(true);
                         setVenueVerified(null);
                         try {
-                          if (!functions) throw new Error('functions-not-initialized');
-                          const verify = httpsCallable(functions, 'verifyVenueCode');
-                          const res = await verify({ code: venueId });
-                          const result = (res.data || {}) as { match?: boolean; venueName?: string };
-                          if (result.match) {
-                            setVenueVerified({ ok: true, venueName: result.venueName || null });
-                            alert('コードが一致しました — 現地参加が認証されました');
+                          const response = await api.post<{ match: boolean; venueName?: string }>('/venues/verify', { code: venueId });
+                          if (response.success && response.data) {
+                            if (response.data.match) {
+                              setVenueVerified({ ok: true, venueName: response.data.venueName || null });
+                              alert('コードが一致しました — 現地参加が認証されました');
+                            } else {
+                              setVenueVerified({ ok: false });
+                              alert('コードが一致しません');
+                            }
                           } else {
                             setVenueVerified({ ok: false });
                             alert('コードが一致しません');

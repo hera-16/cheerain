@@ -52,4 +52,14 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("ユーザーが見つかりません"));
         userRepository.delete(user);
     }
+
+    @Transactional
+    public UserResponse updateProfileImage(String userId, String profileImageUrl) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("ユーザーが見つかりません"));
+
+        user.setProfileImage(profileImageUrl);
+        User updatedUser = userRepository.save(user);
+        return UserResponse.fromEntity(updatedUser);
+    }
 }

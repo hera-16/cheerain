@@ -15,6 +15,7 @@ public class UserResponse {
     private String userId;
     private String email;
     private String role;
+    private String profileImage;
     private LocalDateTime createdAt;
 
     public static UserResponse from(User user) {
@@ -23,6 +24,7 @@ public class UserResponse {
                 user.getUserId(),
                 user.getEmail(),
                 user.getRole().name().toLowerCase(),
+                user.getProfileImage(),
                 user.getCreatedAt()
         );
     }

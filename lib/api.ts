@@ -84,4 +84,35 @@ export const api = {
   // DELETE
   delete: <T>(endpoint: string) =>
     fetchApi<T>(endpoint, { method: 'DELETE' }),
+
+  // ファイルアップロード（multipart/form-data）
+  uploadFile: async <T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+
+    const headers: HeadersInit = {};
+
+    // トークンがあればAuthorizationヘッダーに追加
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const data: ApiResponse<T> = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'ファイルのアップロードに失敗しました');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Upload Error:', error);
+      throw error;
+    }
+  },
 };

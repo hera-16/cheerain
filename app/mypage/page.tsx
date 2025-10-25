@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import QRCode from 'qrcode';
-import { uploadImage, generateFileName } from '@/lib/uploadImage';
 import { api } from '@/lib/api';
 
 interface NFT {
@@ -102,19 +101,26 @@ export default function MyPage() {
     setIsUploadingImage(true);
 
     try {
-      // Firebase Storageにアップロード
-      const fileName = generateFileName(file.name);
-      const storagePath = `profile-images/${user.uid}/${fileName}`;
-      const imageUrl = await uploadImage(file, storagePath);
+      // Java APIにアップロード
+      const formDataObj = new FormData();
+      formDataObj.append('file', file);
+      formDataObj.append('type', 'profile');
 
-      // FirestoreにURLを保存
-      const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, {
-        profileImage: imageUrl
-      });
+      const uploadResponse = await api.uploadFile<{ url: string; fileName: string }>('/upload/image', formDataObj);
 
-      setProfileImage(imageUrl);
-      alert('プロフィール写真を更新しました！');
+      if (uploadResponse.success && uploadResponse.data) {
+        const imageUrl = uploadResponse.data.url;
+
+        // REST APIでユーザー情報を更新
+        await api.patch('/users/me', {
+          profileImage: imageUrl
+        });
+
+        setProfileImage(imageUrl);
+        alert('プロフィール写真を更新しました！');
+      } else {
+        throw new Error('画像のアップロードに失敗しました');
+      }
     } catch (error) {
       console.error('プロフィール写真アップロードエラー:', error);
       alert('プロフィール写真の更新に失敗しました');
