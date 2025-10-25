@@ -5,26 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
-interface Stats {
-  totalNFTs: number;
-  totalUsers: number;
-  totalPayments: number;
-  venueAttendees: number;
-  thisMonthNFTs: number;
-}
-
 export default function AdminDashboard() {
   const router = useRouter();
   const { isAdmin, loading: authLoading, userData } = useAuth();
-  
-  const [stats, setStats] = useState<Stats>({
-    totalNFTs: 0,
-    totalUsers: 0,
-    totalPayments: 0,
-    venueAttendees: 0,
-    thisMonthNFTs: 0,
-  });
-  const [loading, setLoading] = useState(true);
+
   const [codes, setCodes] = useState<any[]>([]);
   const [newCode, setNewCode] = useState('');
   const [venueName, setVenueName] = useState('');
@@ -57,33 +41,7 @@ export default function AdminDashboard() {
     loadCodes();
   }, []);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // REST APIから統計データを取得
-        const response = await api.get<Stats>('/analytics');
-
-        if (response.success && response.data) {
-          setStats({
-            totalNFTs: response.data.totalNFTs || 0,
-            totalUsers: response.data.totalUsers || 0,
-            totalPayments: response.data.totalPayments || 0,
-            venueAttendees: response.data.venueAttendees || 0,
-            thisMonthNFTs: response.data.thisMonthNFTs || 0,
-          });
-        }
-      } catch (error) {
-        console.error('統計データの取得エラー:', error);
-        // エラーが発生しても初期値を保持
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
-
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
@@ -103,69 +61,8 @@ export default function AdminDashboard() {
           管理ダッシュボード
         </h1>
         <p className="text-xl text-gray-300 font-bold">
-          CHEERAIN システム統計
+          CHEERAIN 管理画面
         </p>
-      </div>
-
-      {/* 統計カード */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-        {/* 総NFT数 */}
-        <div className="bg-gradient-to-br from-red-600 to-red-800 p-8 shadow-2xl border-4 border-yellow-400">
-          <div className="text-center">
-            <div className="text-5xl mb-3">🎴</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">総NFT発行数</p>
-            <p className="text-5xl font-black text-yellow-300">{stats.totalNFTs}</p>
-          </div>
-        </div>
-
-        {/* 総ユーザー数 */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 shadow-2xl border-4 border-yellow-400">
-          <div className="text-center">
-            <div className="text-5xl mb-3">👥</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">登録ユーザー数</p>
-            <p className="text-5xl font-black text-yellow-300">{stats.totalUsers}</p>
-          </div>
-        </div>
-
-        {/* 支払い総額 */}
-        <div className="bg-gradient-to-br from-green-600 to-green-800 p-8 shadow-2xl border-4 border-yellow-400">
-          <div className="text-center">
-            <div className="text-5xl mb-3">💰</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">支払い総額</p>
-            <p className="text-5xl font-black text-yellow-300">
-              ¥{(stats.totalPayments || 0).toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        {/* 現地参加者数 */}
-        <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-8 shadow-2xl border-4 border-yellow-400">
-          <div className="text-center">
-            <div className="text-5xl mb-3">🏟️</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">現地参加者</p>
-            <p className="text-5xl font-black text-yellow-300">{stats.venueAttendees}</p>
-          </div>
-        </div>
-
-        {/* 今月のNFT */}
-        <div className="bg-gradient-to-br from-orange-600 to-orange-800 p-8 shadow-2xl border-4 border-yellow-400">
-          <div className="text-center">
-            <div className="text-5xl mb-3">📅</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">今月のNFT発行</p>
-            <p className="text-5xl font-black text-yellow-300">{stats.thisMonthNFTs}</p>
-          </div>
-        </div>
-
-        {/* 平均支払額 */}
-        <div className="bg-gradient-to-br from-pink-600 to-pink-800 p-8 shadow-2xl border-4 border-yellow-400">
-          <div className="text-center">
-            <div className="text-5xl mb-3">📈</div>
-            <p className="text-sm text-yellow-200 font-bold mb-2">平均支払額</p>
-            <p className="text-5xl font-black text-yellow-300">
-              ¥{(stats.totalNFTs || 0) > 0 ? Math.round((stats.totalPayments || 0) / stats.totalNFTs).toLocaleString() : 0}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* クイックアクション */}

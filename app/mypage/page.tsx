@@ -200,7 +200,7 @@ export default function MyPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-yellow-100 p-3 sm:p-4 text-center border-2 sm:border-4 border-yellow-400">
               <p className="text-xs sm:text-sm text-gray-900 font-bold">保有NFT</p>
               <p className="text-2xl sm:text-3xl font-black text-red-700">{nfts.length}</p>
@@ -208,14 +208,6 @@ export default function MyPage() {
             <div className="bg-green-100 p-3 sm:p-4 text-center border-2 sm:border-4 border-green-400">
               <p className="text-xs sm:text-sm text-gray-900 font-bold">今月のNFT</p>
               <p className="text-2xl sm:text-3xl font-black text-green-700">{monthlyNFTCount}</p>
-            </div>
-            <div className="bg-yellow-100 p-3 sm:p-4 text-center border-2 sm:border-4 border-yellow-400">
-              <p className="text-xs sm:text-sm text-gray-900 font-bold">応援回数</p>
-              <p className="text-2xl sm:text-3xl font-black text-red-700">{nfts.length * 3}</p>
-            </div>
-            <div className="bg-yellow-100 p-3 sm:p-4 text-center border-2 sm:border-4 border-yellow-400">
-              <p className="text-xs sm:text-sm text-gray-900 font-bold">ポイント</p>
-              <p className="text-2xl sm:text-3xl font-black text-red-700">{nfts.length * 100}</p>
             </div>
           </div>
         </div>
