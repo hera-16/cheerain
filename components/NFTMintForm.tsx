@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
+import { uploadImage, generateFileName } from '@/lib/uploadImage';
 import { Player } from '@/types/player';
 
 type PaymentMethod = 'credit' | 'paypay' | 'aupay';
@@ -100,14 +101,16 @@ export default function NFTMintForm() {
 
     try {
       // 画像の取得: デフォルト画像または自前の画像
-      let imageBase64 = '';
+      let imageUrl = '';
 
       if (selectedDefaultImage !== null) {
-        // デフォルト画像が選択されている場合
-        imageBase64 = generateDefaultImageDataURL(selectedDefaultImage);
-      } else if (preview) {
-        // 自前の画像がアップロードされている場合
-        imageBase64 = preview;
+        // デフォルト画像が選択されている場合（Base64のまま保存）
+        imageUrl = generateDefaultImageDataURL(selectedDefaultImage);
+      } else if (formData.image) {
+        // 自前の画像がアップロードされている場合 → Firebase Storageにアップロード
+        const fileName = generateFileName(formData.image.name);
+        const storagePath = `nfts/${user.uid}/${fileName}`;
+        imageUrl = await uploadImage(formData.image, storagePath);
       }
 
       // Firestoreに応援メッセージNFTデータを保存
@@ -115,7 +118,7 @@ export default function NFTMintForm() {
         title: formData.title,
         message: formData.message,
         playerName: formData.playerName,
-        imageUrl: imageBase64, // Base64エンコードされた画像データ（デフォルトまたは自前）
+        imageUrl: imageUrl, // Storage URLまたはBase64（デフォルト画像の場合）
         creatorAddress: user.email,
         creatorUid: user.uid,
         creatorUserId: userData?.userId || '',

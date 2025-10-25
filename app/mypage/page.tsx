@@ -8,6 +8,7 @@ import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/fire
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import QRCode from 'qrcode';
+import { uploadImage, generateFileName } from '@/lib/uploadImage';
 
 interface NFT {
   id: string;
@@ -110,21 +111,19 @@ export default function MyPage() {
     setIsUploadingImage(true);
 
     try {
-      // Base64エンコード
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result as string;
+      // Firebase Storageにアップロード
+      const fileName = generateFileName(file.name);
+      const storagePath = `profile-images/${user.uid}/${fileName}`;
+      const imageUrl = await uploadImage(file, storagePath);
 
-        // Firestoreに保存
-        const userDocRef = doc(db, 'users', user.uid);
-        await updateDoc(userDocRef, {
-          profileImage: base64Image
-        });
+      // FirestoreにURLを保存
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        profileImage: imageUrl
+      });
 
-        setProfileImage(base64Image);
-        alert('プロフィール写真を更新しました！');
-      };
-      reader.readAsDataURL(file);
+      setProfileImage(imageUrl);
+      alert('プロフィール写真を更新しました！');
     } catch (error) {
       console.error('プロフィール写真アップロードエラー:', error);
       alert('プロフィール写真の更新に失敗しました');
