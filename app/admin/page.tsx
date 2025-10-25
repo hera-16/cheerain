@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
 
 interface Stats {
   totalNFTs: number;
@@ -21,6 +21,9 @@ export default function AdminDashboard() {
     thisMonthNFTs: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [codes, setCodes] = useState<any[]>([]);
+  const [newCode, setNewCode] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -175,6 +178,105 @@ export default function AdminDashboard() {
             <div className="text-4xl mb-2">📊</div>
             <p className="text-xl font-black text-yellow-300">詳細分析</p>
           </a>
+        </div>
+      </div>
+      
+      {/* 現地コード管理 - 管理者がコードを作成/削除できます（24時間で期限切れ） */}
+      <div className="bg-white mt-8 p-8 shadow-2xl border-4 border-red-700">
+        <h2 className="text-2xl font-black text-red-700 mb-4 tracking-wider">🏷️ 現地コード管理</h2>
+        <p className="text-sm text-gray-700 mb-4">管理者が現地で使うコードを作成できます。コードは24時間で期限切れになります（フロントから期限切れを自動削除します）。</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-bold text-gray-800 mb-2">コード（任意）</label>
+            <input
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value)}
+              className="w-full px-4 py-2 border-2 border-gray-300"
+              placeholder="空欄の場合はランダム生成されます（5桁の数字推奨）"
+            />
+            <p className="text-xs text-gray-500 mt-2">5桁の数字を推奨（互換性のため）。</p>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={async () => {
+                if (creating) return;
+                setCreating(true);
+                try {
+                  const codeVal = newCode && newCode.trim().length > 0 ? newCode.trim() : String(Math.floor(10000 + Math.random() * 90000));
+                  const now = new Date();
+                  const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                  await addDoc(collection(db, 'venueCodes'), {
+                    code: codeVal,
+                    createdAt: serverTimestamp(),
+                    expiresAt: Timestamp.fromDate(expires),
+                    createdBy: 'admin',
+                  });
+                  setNewCode('');
+                  // 再取得
+                  const q = query(collection(db, 'venueCodes'), orderBy('createdAt','desc'));
+                  const snap = await getDocs(q);
+                  const nowDate = new Date();
+                  const items: any[] = [];
+                  for(const d of snap.docs){
+                    const data = d.data();
+                    const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
+                    if (expiresAt && expiresAt < nowDate){
+                      await deleteDoc(doc(db, 'venueCodes', d.id));
+                      continue;
+                    }
+                    items.push({ id: d.id, ...data });
+                  }
+                  setCodes(items);
+                } catch (err) {
+                  console.error('コード作成エラー', err);
+                } finally {
+                  setCreating(false);
+                }
+              }}
+              className="w-full bg-red-700 text-yellow-300 font-black py-2 px-4 border-2 border-yellow-400 hover:bg-red-800"
+            >
+              {creating ? '作成中...' : 'コードを作成'}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-bold text-gray-800 mb-3">有効な現地コード</h3>
+          <div className="space-y-3">
+            {codes.length === 0 ? (
+              <p className="text-sm text-gray-600">現在有効なコードはありません。</p>
+            ) : (
+              codes.map((c) => (
+                <div key={c.id} className="flex items-center justify-between bg-gray-50 p-3 border-2 border-gray-200">
+                  <div>
+                    <div className="font-black text-lg text-red-700 tracking-wider">{c.code}</div>
+                    <div className="text-xs text-gray-600">有効期限: {c.expiresAt?.toDate ? c.expiresAt.toDate().toLocaleString() : '-'}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        try{
+                          await navigator.clipboard.writeText(c.code);
+                          alert('コードをコピーしました');
+                        }catch(e){ console.error(e); }
+                      }}
+                      className="px-3 py-2 bg-yellow-400 font-bold text-red-800 border-2 border-red-700"
+                    >コピー</button>
+                    <button
+                      onClick={async () => {
+                        try{
+                          await deleteDoc(doc(db,'venueCodes',c.id));
+                          setCodes(prev=>prev.filter(p=>p.id!==c.id));
+                        }catch(e){ console.error(e); }
+                      }}
+                      className="px-3 py-2 bg-gray-300 font-bold text-gray-800 border-2 border-gray-400"
+                    >削除</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
