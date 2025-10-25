@@ -1,19 +1,19 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
 
 interface UserData {
+  id: string;
   userId: string;
   email: string;
   role: 'user' | 'admin';
-  createdAt: Date;
+  createdAt: string;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: UserData | null;
   userData: UserData | null;
   isAdmin: boolean;
   loading: boolean;
@@ -29,66 +29,60 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
 
-      if (user) {
-        // Firestoreからユーザー情報を取得
+    if (token) {
+      // トークンがある場合、現在のユーザー情報を取得
+      const fetchUser = async () => {
         try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDocSnap = await getDoc(userDocRef);
+          const response = await api.get<UserData>('/auth/me');
 
-          console.log('🔍 [AuthContext] ユーザー認証状態:', {
-            uid: user.uid,
-            email: user.email,
-            docExists: userDocSnap.exists()
-          });
-
-          if (userDocSnap.exists()) {
-            const data = userDocSnap.data();
-            console.log('📄 [AuthContext] Firestoreデータ:', data);
-
-            const userData = {
-              userId: data.userId,
-              email: data.email,
-              role: data.role || 'user', // デフォルトはuser
-              createdAt: data.createdAt?.toDate() || new Date(),
-            };
-
-            console.log('✅ [AuthContext] 設定されたuserData:', userData);
-            console.log('👑 [AuthContext] isAdmin判定:', userData.role === 'admin');
-
-            setUserData(userData);
-          } else {
-            console.warn('⚠️ [AuthContext] Firestoreにユーザードキュメントが存在しません');
-            setUserData(null);
+          if (response.success && response.data) {
+            console.log('✅ [AuthContext] ユーザー情報取得成功:', response.data);
+            setUser(response.data);
+            setUserData(response.data);
           }
         } catch (error) {
-          console.error('❌ [AuthContext] ユーザー情報の取得エラー:', error);
+          console.error('❌ [AuthContext] ユーザー情報取得エラー:', error);
+          // トークンが無効な場合はログアウト
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+          }
+          setUser(null);
           setUserData(null);
+        } finally {
+          setLoading(false);
         }
-      } else {
-        console.log('🚪 [AuthContext] ユーザーがログアウトしました');
-        setUserData(null);
-      }
+      };
 
+      fetchUser();
+    } else {
+      console.log('🚪 [AuthContext] トークンが存在しません');
       setLoading(false);
-    });
-
-    return unsubscribe;
+    }
   }, []);
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      await api.post('/auth/logout', {});
     } catch (error) {
       console.error('Logout error:', error);
-      throw error;
+    } finally {
+      // localStorageからトークンを削除
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+      }
+      setUser(null);
+      setUserData(null);
+      router.push('/login');
     }
   };
 
