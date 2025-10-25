@@ -202,6 +202,13 @@ export default function AdminDashboard() {
             <div className="text-4xl mb-2">🎫</div>
             <p className="text-xl font-black text-yellow-300">現地コード</p>
           </a>
+          <a
+            href="/admin/matches"
+            className="block bg-gradient-to-r from-indigo-600 to-indigo-700 p-6 text-center hover:from-indigo-700 hover:to-indigo-800 transition shadow-lg border-2 border-yellow-400"
+          >
+            <div className="text-4xl mb-2">⚽</div>
+            <p className="text-xl font-black text-yellow-300">試合管理</p>
+          </a>
         </div>
       </div>
       
