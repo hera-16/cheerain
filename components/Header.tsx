@@ -33,10 +33,10 @@ export default function Header() {
           {/* デスクトップナビゲーション */}
           <nav className="hidden md:flex items-center gap-2">
             <Link
-              href="/nfts"
+              href="/blockchain-mint"
               className="px-3 lg:px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide text-sm lg:text-base"
             >
-              NFT一覧
+              ブロックチェーンNFT
             </Link>
             <Link
               href="/mypage"
@@ -96,11 +96,11 @@ export default function Header() {
         {isMobileMenuOpen && (
           <nav className="md:hidden mt-4 pb-4 border-t-2 border-yellow-400 pt-4 space-y-2">
             <Link
-              href="/nfts"
+              href="/blockchain-mint"
               onClick={() => setIsMobileMenuOpen(false)}
               className="block px-4 py-3 text-yellow-100 hover:bg-red-800 transition font-bold tracking-wide rounded"
             >
-              NFT一覧
+              ブロックチェーンNFT
             </Link>
             <Link
               href="/mypage"

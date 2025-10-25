@@ -120,9 +120,8 @@ export default function NFTMintForm() {
         playerName: formData.playerName,
         imageUrl: imageUrl, // Storage URLまたはBase64（デフォルト画像の場合）
         paymentAmount: parseFloat(paymentAmount),
-        paymentMethod: paymentMethod,
-        venueId: venueId || null, // 会場ID（任意）
-        isVenueAttendee: venueId ? true : false, // 現地参加フラグ
+        paymentMethod: paymentMethod.toUpperCase(), // バックエンドは大文字を要求（CREDIT、PAYPAY、AUPAY）
+        venueId: venueId || '', // 会場ID（空文字列または5桁の数字）
       });
 
       if (response.success) {

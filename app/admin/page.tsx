@@ -13,6 +13,15 @@ interface Stats {
   thisMonthNFTs: number;
 }
 
+interface VenueCode {
+  id: string;
+  code?: string;
+  venueName?: string;
+  createdAt?: Timestamp;
+  expiresAt?: Timestamp;
+  isActive?: boolean;
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
     totalNFTs: 0,
@@ -22,7 +31,7 @@ export default function AdminDashboard() {
     thisMonthNFTs: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [codes, setCodes] = useState<any[]>([]);
+  const [codes, setCodes] = useState<VenueCode[]>([]);
   const [newCode, setNewCode] = useState('');
   const [venueName, setVenueName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -39,7 +48,7 @@ export default function AdminDashboard() {
           return;
         }
         // keep only the latest non-expired document
-        let latest: any = null;
+        let latest: VenueCode | null = null;
         for (const d of snap.docs) {
           const data = d.data();
           const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
@@ -249,7 +258,7 @@ export default function AdminDashboard() {
                   const q = query(collection(db, 'venueCodes'), orderBy('createdAt','desc'));
                   const snap = await getDocs(q);
                   const nowDate = new Date();
-                  let latest: any = null;
+                  let latest: VenueCode | null = null;
                   for (const d of snap.docs) {
                     const data = d.data();
                     const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
@@ -293,8 +302,10 @@ export default function AdminDashboard() {
                       <button
                         onClick={async () => {
                           try{
-                            await navigator.clipboard.writeText(c.code);
-                            alert('コードをコピーしました');
+                            if (c.code) {
+                              await navigator.clipboard.writeText(c.code);
+                              alert('コードをコピーしました');
+                            }
                           }catch(e){ console.error(e); }
                         }}
                         className="px-3 py-2 bg-yellow-400 font-bold text-red-800 border-2 border-red-700"
