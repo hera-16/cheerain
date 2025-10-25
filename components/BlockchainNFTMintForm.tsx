@@ -196,9 +196,9 @@ export default function BlockchainNFTMintForm() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
-        ブロックチェーンNFT応援カード発行
+    <div className="max-w-2xl mx-auto p-8 bg-gradient-to-br from-red-50 via-yellow-50 to-blue-50 rounded-2xl shadow-2xl border-4 border-blue-600">
+      <h2 className="text-4xl font-black mb-8 text-center text-gray-900 drop-shadow-lg">
+        ⚡ NFT応援カード発行 ⚡
       </h2>
 
       {/* ウォレット接続状態 */}
@@ -207,8 +207,8 @@ export default function BlockchainNFTMintForm() {
       </div>
 
       {!isConnected && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-yellow-800 text-center">
+        <div className="mb-6 p-4 bg-gradient-to-r from-yellow-400 to-red-400 border-4 border-red-600 rounded-xl shadow-lg animate-pulse">
+          <p className="text-gray-900 text-center font-bold text-lg">
             ⚠️ NFTを発行するにはウォレットを接続してください
           </p>
         </div>
@@ -216,15 +216,15 @@ export default function BlockchainNFTMintForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* タイトル */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            タイトル <span className="text-red-500">*</span>
+        <div className="bg-white p-4 rounded-xl border-4 border-blue-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-2">
+            📝 タイトル <span className="text-red-600">*</span>
           </label>
           <input
             type="text"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border-4 border-yellow-400 rounded-lg focus:ring-4 focus:ring-red-500 focus:border-red-500 font-bold text-lg text-gray-900"
             placeholder="例: 次の試合も頑張ってください！"
             required
             disabled={!isConnected}
@@ -232,14 +232,14 @@ export default function BlockchainNFTMintForm() {
         </div>
 
         {/* 応援メッセージ */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            応援メッセージ <span className="text-red-500">*</span>
+        <div className="bg-white p-4 rounded-xl border-4 border-red-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-2">
+            💬 応援メッセージ <span className="text-red-600">*</span>
           </label>
           <textarea
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
+            className="w-full px-4 py-3 border-4 border-yellow-400 rounded-lg focus:ring-4 focus:ring-blue-500 focus:border-blue-500 h-32 font-bold text-lg text-gray-900"
             placeholder="選手への応援メッセージを入力してください"
             required
             disabled={!isConnected}
@@ -247,122 +247,122 @@ export default function BlockchainNFTMintForm() {
         </div>
 
         {/* 応援対象選択 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            応援対象 <span className="text-red-500">*</span>
+        <div className="bg-gradient-to-r from-blue-100 to-yellow-100 p-4 rounded-xl border-4 border-yellow-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-2">
+            🎯 応援対象 <span className="text-red-600">*</span>
           </label>
-          <div className="w-full px-4 py-3 border-2 border-gray-300 bg-gray-100 rounded-lg font-medium text-gray-700">
+          <div className="w-full px-4 py-3 border-4 border-blue-500 bg-white rounded-lg font-black text-gray-900 text-center text-xl">
             ⚽ チームを応援
           </div>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-900 mt-2 font-bold">
             現在はチーム全体への応援のみ選択できます
           </p>
         </div>
 
         {/* デフォルト画像選択 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            デフォルト画像から選択
+        <div className="bg-gradient-to-r from-yellow-100 to-red-100 p-4 rounded-xl border-4 border-red-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-3">
+            🎨 デフォルト画像から選択
           </label>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-3">
             {defaultImages.map((img) => (
               <button
                 key={img.id}
                 type="button"
                 onClick={() => handleDefaultImageSelect(img.id)}
-                className={`p-2 border-2 rounded-lg hover:border-blue-500 transition-colors ${
-                  selectedDefaultImage === img.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                className={`p-3 border-4 rounded-xl hover:border-yellow-400 hover:scale-110 transition-all transform ${
+                  selectedDefaultImage === img.id ? 'border-yellow-400 bg-yellow-200 scale-110 shadow-2xl' : 'border-blue-400 bg-white'
                 }`}
                 disabled={!isConnected}
               >
                 <div
-                  className="w-full h-20 bg-gradient-to-br rounded flex items-center justify-center"
+                  className="w-full h-20 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-inner"
                   style={{ backgroundImage: img.gradient }}
                 >
-                  <span className="text-2xl">{img.emoji}</span>
+                  <span className="text-3xl drop-shadow-lg">{img.emoji}</span>
                 </div>
-                <p className="text-xs text-center mt-1 text-gray-600">{img.name}</p>
+                <p className="text-xs text-center mt-2 font-bold text-gray-900">{img.name}</p>
               </button>
             ))}
           </div>
         </div>
 
         {/* カスタム画像アップロード */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            または自分の画像をアップロード
+        <div className="bg-gradient-to-r from-blue-100 to-red-100 p-4 rounded-xl border-4 border-blue-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-2">
+            📷 または自分の画像をアップロード
           </label>
           <input
             type="file"
             accept="image/*"
             onChange={handleImageChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-4 py-3 border-4 border-yellow-400 rounded-lg bg-white font-bold text-gray-900"
             disabled={!isConnected}
           />
-          <p className="text-sm text-gray-500 mt-1">最大10MB（PNG, JPG, GIF対応）</p>
+          <p className="text-sm text-gray-900 mt-2 font-bold">最大10MB（PNG, JPG, GIF対応）</p>
         </div>
 
         {/* プレビュー */}
         {preview && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">プレビュー</label>
-            <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
-              <img src={preview} alt="Preview" className="max-h-64 mx-auto rounded" />
+          <div className="bg-gradient-to-br from-yellow-100 via-red-100 to-blue-100 p-6 rounded-xl border-4 border-yellow-500 shadow-2xl">
+            <label className="block text-2xl font-black text-center text-gray-900 mb-4">✨ プレビュー ✨</label>
+            <div className="border-4 border-red-500 rounded-xl p-4 bg-white shadow-inner">
+              <img src={preview} alt="Preview" className="max-h-64 mx-auto rounded-lg shadow-lg" />
             </div>
           </div>
         )}
 
         {/* 支払金額 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            支払金額（円） <span className="text-red-500">*</span>
+        <div className="bg-gradient-to-r from-red-100 to-yellow-100 p-4 rounded-xl border-4 border-yellow-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-2">
+            💰 支払金額（円） <span className="text-red-600">*</span>
           </label>
           <input
             type="number"
             value={paymentAmount}
             onChange={(e) => setPaymentAmount(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border-4 border-blue-400 rounded-lg focus:ring-4 focus:ring-red-500 focus:border-red-500 font-black text-2xl text-center text-gray-900"
             placeholder="500"
             min="500"
             required
             disabled={!isConnected}
           />
-          <p className="text-sm text-gray-500 mt-1">最低金額: 500円</p>
+          <p className="text-sm text-gray-900 mt-2 font-bold">最低金額: 500円</p>
         </div>
 
         {/* 支払方法 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">支払方法</label>
+        <div className="bg-gradient-to-r from-blue-100 to-yellow-100 p-4 rounded-xl border-4 border-blue-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-3">💳 支払方法</label>
           <div className="flex gap-4">
-            <label className="flex items-center">
+            <label className="flex items-center bg-white px-4 py-2 rounded-lg border-4 border-yellow-400 font-bold cursor-pointer hover:bg-yellow-100 transition-colors text-gray-900">
               <input
                 type="radio"
                 value="credit"
                 checked={paymentMethod === 'credit'}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="mr-2"
+                className="mr-2 w-5 h-5"
                 disabled={!isConnected}
               />
               クレジットカード
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center bg-white px-4 py-2 rounded-lg border-4 border-red-400 font-bold cursor-pointer hover:bg-red-100 transition-colors text-gray-900">
               <input
                 type="radio"
                 value="paypay"
                 checked={paymentMethod === 'paypay'}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="mr-2"
+                className="mr-2 w-5 h-5"
                 disabled={!isConnected}
               />
               PayPay
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center bg-white px-4 py-2 rounded-lg border-4 border-blue-400 font-bold cursor-pointer hover:bg-blue-100 transition-colors text-gray-900">
               <input
                 type="radio"
                 value="aupay"
                 checked={paymentMethod === 'aupay'}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="mr-2"
+                className="mr-2 w-5 h-5"
                 disabled={!isConnected}
               />
               auPay
@@ -371,20 +371,20 @@ export default function BlockchainNFTMintForm() {
         </div>
 
         {/* 会場ID（オプション） */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            会場ID（現地参加の場合のみ）
+        <div className="bg-gradient-to-r from-yellow-100 to-blue-100 p-4 rounded-xl border-4 border-red-500 shadow-lg">
+          <label className="block text-lg font-black text-gray-900 mb-2">
+            🏟️ 会場ID（現地参加の場合のみ）
           </label>
           <input
             type="text"
             value={venueId}
             onChange={(e) => setVenueId(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border-4 border-yellow-400 rounded-lg focus:ring-4 focus:ring-blue-500 focus:border-blue-500 font-black text-2xl text-center tracking-widest text-gray-900"
             placeholder="12345"
             maxLength={5}
             disabled={!isConnected}
           />
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-900 mt-2 font-bold">
             スタジアムで配布された5桁の会場IDを入力してください
           </p>
         </div>
@@ -421,32 +421,34 @@ export default function BlockchainNFTMintForm() {
         <button
           type="submit"
           disabled={!isConnected || isPending || isConfirming}
-          className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-colors ${
+          className={`w-full py-6 px-8 rounded-2xl font-black text-2xl text-white transition-all transform border-4 ${
             !isConnected || isPending || isConfirming
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+              ? 'bg-gray-400 cursor-not-allowed border-gray-500'
+              : 'bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 hover:from-red-700 hover:via-yellow-600 hover:to-blue-700 border-yellow-400 hover:scale-105 shadow-2xl hover:shadow-yellow-400/50 animate-pulse'
           }`}
         >
           {isPending
-            ? '署名待ち...'
+            ? '⏳ 署名待ち...'
             : isConfirming
-            ? 'トランザクション承認中...'
-            : 'ブロックチェーンNFTを発行'}
+            ? '🔄 トランザクション承認中...'
+            : '🚀 NFTを発行する！'}
         </button>
       </form>
 
       {/* 注意事項 */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600">
-          ⚠️ 注意: このNFTはPolygon Amoy Testnetで発行されます。実際の価値はありません。
+      <div className="mt-8 p-6 bg-gradient-to-r from-yellow-200 via-red-200 to-blue-200 rounded-2xl border-4 border-red-500 shadow-xl">
+        <p className="text-base text-gray-900 font-bold flex items-center gap-2">
+          <span className="text-2xl">⚠️</span>
+          注意: このNFTはPolygon Amoy Testnetで発行されます。実際の価値はありません。
         </p>
-        <p className="text-sm text-gray-600 mt-2">
-          ℹ️ テストネットMATICが必要です。{' '}
+        <p className="text-base text-gray-900 font-bold mt-3 flex items-center gap-2">
+          <span className="text-2xl">ℹ️</span>
+          テストネットMATICが必要です。{' '}
           <a
             href="https://faucet.polygon.technology/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-700"
+            className="text-blue-600 underline hover:text-blue-800 font-black"
           >
             Faucet
           </a>
