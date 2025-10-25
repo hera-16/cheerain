@@ -49,3 +49,9 @@ backend/target/
 *.ear
 *.log
 .mvn/wrapper/maven-wrapper.jar
+
+# Backend uploads (user-generated content)
+backend/uploads/
+
+# Backup files
+*.bak
