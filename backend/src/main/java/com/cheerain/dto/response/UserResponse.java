@@ -16,6 +16,7 @@ public class UserResponse {
     private String email;
     private String role;
     private String profileImage;
+    private Integer points;
     private LocalDateTime createdAt;
 
     public static UserResponse from(User user) {
@@ -25,6 +26,7 @@ public class UserResponse {
                 user.getEmail(),
                 user.getRole().name(), // 大文字のまま返す (ADMIN, USER)
                 user.getProfileImage(),
+                user.getPoints(),
                 user.getCreatedAt()
         );
     }

@@ -47,7 +47,37 @@ public class NftService {
         nft.setVenueId(request.getVenueId());
 
         Nft savedNft = nftRepository.save(nft);
+        
+        // ポイント付与: 支払い金額に応じて10〜100ポイント
+        int pointsToAdd = calculatePoints(request.getPaymentAmount());
+        user.setPoints(user.getPoints() + pointsToAdd);
+        userRepository.save(user);
+
         return NftResponse.fromEntity(savedNft);
+    }
+    
+    /**
+     * 支払い金額に応じたポイント計算
+     * 最低金額は500円
+     * 500円〜1,000円: 20ポイント
+     * 1,001円〜2,000円: 50ポイント
+     * 2,001円〜3,000円: 70ポイント
+     * 3,001円以上: 100ポイント
+     */
+    private int calculatePoints(java.math.BigDecimal paymentAmount) {
+        double amount = paymentAmount.doubleValue();
+        
+        if (amount < 500) {
+            return 20; // 最低保証(500円未満の場合も20ポイント)
+        } else if (amount <= 1000) {
+            return 20;
+        } else if (amount <= 2000) {
+            return 50;
+        } else if (amount <= 3000) {
+            return 70;
+        } else {
+            return 100;
+        }
     }
 
     @Transactional(readOnly = true)
