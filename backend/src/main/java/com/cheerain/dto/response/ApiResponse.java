@@ -25,6 +25,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(false, null, null, new ErrorResponse(code, message));
     }
 
+    public static <T> ApiResponse<T> error(String code, String message, T data) {
+        return new ApiResponse<>(false, data, null, new ErrorResponse(code, message));
+    }
+
     @Data
     @AllArgsConstructor
     public static class ErrorResponse {

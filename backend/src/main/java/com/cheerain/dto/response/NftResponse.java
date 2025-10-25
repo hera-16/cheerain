@@ -43,4 +43,8 @@ public class NftResponse {
                 nft.getCreatedAt()
         );
     }
+
+    public static NftResponse fromEntity(Nft nft) {
+        return from(nft);
+    }
 }

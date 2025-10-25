@@ -26,4 +26,8 @@ public class UserResponse {
                 user.getCreatedAt()
         );
     }
+
+    public static UserResponse fromEntity(User user) {
+        return from(user);
+    }
 }

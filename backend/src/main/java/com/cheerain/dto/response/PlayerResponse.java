@@ -24,4 +24,8 @@ public class PlayerResponse {
                 player.getIsActive()
         );
     }
+
+    public static PlayerResponse fromEntity(Player player) {
+        return from(player);
+    }
 }
