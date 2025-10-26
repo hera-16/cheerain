@@ -429,145 +429,117 @@ cheerain/
 
 ## 🌐 デプロイ
 
-本番環境へのデプロイには、フロントエンドとバックエンドを別々にデプロイする必要があります。
+本番環境へのデプロイには、フロントエンドとバックエンドを別々にデプロイします。
 
-### フロントエンド（Next.js）のデプロイ
+### 📚 デプロイドキュメント
 
-#### Vercel（推奨）
+詳細な手順は以下のドキュメントを参照してください：
 
-1. **Vercelアカウントを作成**
-   - https://vercel.com からGitHubでログイン
-
-2. **GitHubリポジトリをインポート**
-   - "New Project" → リポジトリを選択
-
-3. **環境変数を設定**
-   ```
-   NEXT_PUBLIC_API_URL=https://your-backend-url.com/api/v1
-   NEXT_PUBLIC_FIREBASE_API_KEY=...
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-   NEXT_PUBLIC_FIREBASE_APP_ID=...
-   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...
-   NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=...
-   ```
-
-4. **デプロイ**
-   - "Deploy" ボタンをクリック
-
-#### その他のオプション
-- **Netlify**: `npm run build && npm start`
-- **AWS Amplify**
-- **Firebase Hosting**
+- **[🚀 クイックスタート](./README_DEPLOYMENT.md)** - 30分で完了する最速ガイド
+- **[📋 デプロイチェックリスト](./DEPLOYMENT_CHECKLIST.md)** - チェック形式で確実にデプロイ
+- **[📖 完全デプロイガイド](./DEPLOYMENT_COMPLETE_GUIDE.md)** - すべての手順を網羅
+- **[🔺 Vercel手順書](./DEPLOYMENT.md)** - フロントエンド詳細
+- **[🚂 Railway手順書](./RAILWAY_DEPLOYMENT.md)** - バックエンド詳細
 
 ---
 
-### バックエンド（Spring Boot）のデプロイ
+### システム構成
 
-#### Railway（推奨・無料枠あり）
-
-1. **Railwayアカウント作成**
-   - https://railway.app からGitHubでログイン
-
-2. **新しいプロジェクトを作成**
-   - "New Project" → "Deploy from GitHub repo"
-
-3. **MySQLデータベースを追加**
-   - "New" → "Database" → "MySQL"
-
-4. **環境変数を設定**
-   ```
-   SPRING_DATASOURCE_URL=jdbc:mysql://your-mysql-host:3306/cheerain
-   SPRING_DATASOURCE_USERNAME=root
-   SPRING_DATASOURCE_PASSWORD=your-password
-   JWT_SECRET=your-secure-random-string-here
-   ```
-
-5. **ビルドコマンドを設定**
-   - Build Command: `./mvnw clean package -DskipTests`
-   - Start Command: `java -jar target/cheerain-backend-1.0.0.jar`
-
-#### Render（無料枠あり）
-
-1. **Renderアカウント作成**
-   - https://render.com からGitHubでログイン
-
-2. **Web Serviceを作成**
-   - "New" → "Web Service" → リポジトリ選択
-
-3. **設定**
-   - Environment: Docker
-   - Docker Context: `./backend`
-   - Dockerfile Path: `./backend/Dockerfile`
-
-4. **MySQLを追加**
-   - "New" → "PostgreSQL" または外部MySQLサービスを使用
-
-5. **環境変数を設定**（Railwayと同じ）
-
-#### その他のオプション
-- **Heroku**: Dockerfileでデプロイ可能（有料）
-- **AWS EC2 + RDS**: フル制御が可能だが設定が複雑
-- **Google Cloud Run**: コンテナベースのデプロイ
-
----
-
-### データベース
-
-#### PlanetScale（MySQL互換・無料枠あり）
-
-1. https://planetscale.com でアカウント作成
-2. 新しいデータベースを作成
-3. 接続文字列を取得
-4. バックエンドの環境変数に設定
-
-#### その他のオプション
-- Railway / Render の付属MySQL
-- **AWS RDS**: 本番環境向け、高可用性
-- **Google Cloud SQL**
-
----
-
-### デプロイ後の確認事項
-
-- [ ] フロントエンドがバックエンドAPIに接続できるか確認
-- [ ] データベースマイグレーションが完了しているか確認
-- [ ] 環境変数がすべて正しく設定されているか確認
-- [ ] Firebase Authenticationが動作しているか確認
-- [ ] Admin権限が正しく設定されているか確認
-- [ ] CORS設定が本番URLを許可しているか確認
-
----
-
-### 本番環境用の設定
-
-#### バックエンド（application-prod.properties）
-
-```properties
-# 本番環境用の設定
-spring.datasource.url=jdbc:mysql://prod-mysql-host:3306/cheerain
-spring.jpa.hibernate.ddl-auto=validate
-spring.jpa.show-sql=false
-
-# CORS設定を本番URLに更新
-cors.allowed-origins=https://your-vercel-app.vercel.app
+```
+┌──────────────────┐
+│  Vercel          │ ← フロントエンド（Next.js）
+│  cheerain.vercel │
+│  .app            │
+└────────┬─────────┘
+         │ API
+         ▼
+┌──────────────────┐    ┌──────────────────┐
+│  Railway         │    │  Firebase        │
+│  Backend API     │◄───┤  Auth/Storage    │
+│  (Spring Boot)   │    └──────────────────┘
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Railway MySQL   │
+│  Database        │
+└──────────────────┘
 ```
 
-#### フロントエンド
+---
 
-本番環境では、`NEXT_PUBLIC_API_URL` を本番バックエンドのURLに設定してください。
+### 🚀 クイックデプロイ（概要）
+
+#### 1. Railway - バックエンド（15分）
+
+```bash
+# 1. https://railway.app/ でアカウント作成
+# 2. 「Deploy from GitHub repo」→ hera-16/cheerain
+# 3. MySQL追加: 「+ New」→「Database」→「MySQL」
+# 4. Settings → Root Directory: backend
+# 5. Variables → 環境変数設定（JWT_SECRET等）
+# 6. デプロイ → URLを取得
+```
+
+#### 2. Vercel - フロントエンド（15分）
+
+```bash
+# 1. https://vercel.com/ でアカウント作成
+# 2. Import Repository → hera-16/cheerain
+# 3. Environment Variables → 環境変数設定
+#    - Firebase設定（7個）
+#    - NEXT_PUBLIC_API_BASE_URL=（RailwayのURL）
+# 4. Deploy → 完了
+```
 
 ---
 
-### デプロイのベストプラクティス
+### 必要な環境変数
 
-1. **ステージング環境を用意**: 本番前にテスト
-2. **環境変数の管理**: `.env.example` を最新に保つ
-3. **データベースバックアップ**: 定期的なバックアップを設定
-4. **モニタリング**: ログとエラーを監視
-5. **CI/CD**: GitHub Actionsで自動デプロイを設定（推奨）
+#### Railway（バックエンド）
+```bash
+DB_HOST=${{MySQL.MYSQLHOST}}
+DB_PORT=${{MySQL.MYSQLPORT}}
+DB_NAME=${{MySQL.MYSQLDATABASE}}
+DB_USERNAME=${{MySQL.MYSQLUSER}}
+DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+JWT_SECRET=your-strong-jwt-secret
+JWT_EXPIRATION=86400000
+SERVER_PORT=$PORT
+SPRING_PROFILES_ACTIVE=prod
+ALLOWED_ORIGINS=https://cheerain.vercel.app,https://*.vercel.app
+```
+
+#### Vercel（フロントエンド）
+```bash
+# Firebase（7個）
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+
+# Web3（4個）
+NEXT_PUBLIC_POLYGON_AMOY_RPC_URL=https://rpc-amoy.polygon.technology
+NEXT_PUBLIC_CHAIN_ID=80002
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=
+
+# Backend API（Railwayから取得）
+NEXT_PUBLIC_API_BASE_URL=https://your-backend.railway.app/api/v1
+```
+
+### デプロイ後の確認
+
+詳しくは[デプロイチェックリスト](./DEPLOYMENT_CHECKLIST.md)を参照してください。
+
+- [ ] バックエンドのヘルスチェック: `curl https://your-backend.railway.app/actuator/health`
+- [ ] フロントエンドがバックエンドAPIに接続できるか確認
+- [ ] Firebase Authenticationが動作しているか確認
+- [ ] NFT発行機能が動作するか確認
+- [ ] CORS設定が正しく動作しているか確認
 
 ---
 

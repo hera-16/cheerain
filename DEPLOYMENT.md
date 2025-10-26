@@ -1,4 +1,4 @@
-# CheeRain - Vercelデプロイ手順書
+# CheeRain - Vercelデプロイ手順書（フロントエンド）
 
 ## 📋 デプロイ前の準備
 
@@ -6,9 +6,10 @@
 - [x] GitHubアカウント
 - [ ] Vercelアカウント（https://vercel.com/signup）
 - [x] Firebaseプロジェクト
+- [ ] Railwayアカウント（バックエンド用）
 
 ### 2. 環境変数の準備
-以下の環境変数を用意してください（`.env.local`を参照）：
+以下の環境変数を用意してください（`.env.example`を参照）：
 
 #### Firebase設定
 - `NEXT_PUBLIC_FIREBASE_API_KEY`
@@ -20,8 +21,13 @@
 - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
 
 #### Polygon/Web3設定
-- `NEXT_PUBLIC_POLYGON_RPC_URL`
-- `NEXT_PUBLIC_CONTRACT_ADDRESS`
+- `NEXT_PUBLIC_POLYGON_AMOY_RPC_URL`
+- `NEXT_PUBLIC_CHAIN_ID`
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS`
+
+#### Backend API（Railwayからデプロイ後に設定）
+- `NEXT_PUBLIC_API_BASE_URL`
 
 ---
 
@@ -54,6 +60,7 @@
 
 「Environment Variables」セクションで、以下の変数を追加：
 
+#### Firebase設定
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=（Firebaseコンソールから取得）
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=（Firebaseコンソールから取得）
@@ -62,11 +69,24 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=（Firebaseコンソールから取得）
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=（Firebaseコンソールから取得）
 NEXT_PUBLIC_FIREBASE_APP_ID=（Firebaseコンソールから取得）
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=（Firebaseコンソールから取得）
-NEXT_PUBLIC_POLYGON_RPC_URL=https://polygon-rpc.com
-NEXT_PUBLIC_CONTRACT_ADDRESS=（NFTコントラクトアドレス）
 ```
 
-**重要**: すべての環境変数で「All (Production, Preview, Development)」を選択
+#### Web3/Blockchain設定
+```
+NEXT_PUBLIC_POLYGON_AMOY_RPC_URL=https://rpc-amoy.polygon.technology
+NEXT_PUBLIC_CHAIN_ID=80002
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=（https://cloud.reown.com/から取得）
+NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=（デプロイ済みNFTコントラクトアドレス）
+```
+
+#### Backend API（Railwayデプロイ後に設定）
+```
+NEXT_PUBLIC_API_BASE_URL=https://your-backend.railway.app/api/v1
+```
+
+**重要**:
+- すべての環境変数で「All (Production, Preview, Development)」を選択
+- `NEXT_PUBLIC_API_BASE_URL`は、バックエンドをRailwayにデプロイした後に設定してください
 
 ### ステップ5: デプロイ実行
 1. 「Deploy」ボタンをクリック
