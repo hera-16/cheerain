@@ -94,7 +94,7 @@ export default function BlockchainMintPage() {
       <footer className="bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 mt-24 py-10 border-t-8 border-yellow-400 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="font-black text-2xl text-white drop-shadow-lg">
-            © 2025 CHEERAIN. Built with ❤️ by Team hera-16
+            © 2025 CHEERAIN. Built with ❤️ by チーム糸島
           </p>
         </div>
       </footer>
