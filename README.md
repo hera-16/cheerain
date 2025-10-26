@@ -56,7 +56,7 @@ CheeRainは、ファンが送った応援コメントをブロックチェーン
 - **JPA / Hibernate** - ORM
 - **MySQL 8.0** - リレーショナルデータベース
 - **Maven** - ビルドツール
-- **Firebase Authentication** - UID管理（補助的）
+- **ローカルファイルシステム** - 画像ストレージ
 
 ### ブロックチェーン・Web3
 - **Polygon Amoy Testnet** - NFT発行ネットワーク
@@ -94,7 +94,6 @@ CheeRainは、ファンが送った応援コメントをブロックチェーン
 
 #### オプション
 - **MetaMask等のWeb3ウォレット** (ブロックチェーンNFT発行用)
-- **Firebaseプロジェクト** (Firebase Authentication用)
 
 ---
 
@@ -453,10 +452,12 @@ cheerain/
 └────────┬─────────┘
          │ API
          ▼
-┌──────────────────┐    ┌──────────────────┐
-│  Railway         │    │  Firebase        │
-│  Backend API     │◄───┤  Auth/Storage    │
-│  (Spring Boot)   │    └──────────────────┘
+┌──────────────────┐
+│  Railway         │
+│  Backend API     │
+│  (Spring Boot)   │
+│  + MySQL         │
+│  + File Storage  │
 └────────┬─────────┘
          │
          ▼
@@ -487,8 +488,8 @@ cheerain/
 # 1. https://vercel.com/ でアカウント作成
 # 2. Import Repository → hera-16/cheerain
 # 3. Environment Variables → 環境変数設定
-#    - Firebase設定（7個）
 #    - NEXT_PUBLIC_API_BASE_URL=（RailwayのURL）
+#    - WalletConnect設定
 # 4. Deploy → 完了
 ```
 
@@ -512,16 +513,7 @@ ALLOWED_ORIGINS=https://cheerain.vercel.app,https://*.vercel.app
 
 #### Vercel（フロントエンド）
 ```bash
-# Firebase（7個）
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
-
-# Web3（4個）
+# Web3設定
 NEXT_PUBLIC_POLYGON_AMOY_RPC_URL=https://rpc-amoy.polygon.technology
 NEXT_PUBLIC_CHAIN_ID=80002
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
@@ -537,7 +529,7 @@ NEXT_PUBLIC_API_BASE_URL=https://your-backend.railway.app/api/v1
 
 - [ ] バックエンドのヘルスチェック: `curl https://your-backend.railway.app/actuator/health`
 - [ ] フロントエンドがバックエンドAPIに接続できるか確認
-- [ ] Firebase Authenticationが動作しているか確認
+- [ ] ユーザー認証(JWT)が動作しているか確認
 - [ ] NFT発行機能が動作するか確認
 - [ ] CORS設定が正しく動作しているか確認
 
@@ -582,7 +574,7 @@ NEXT_PUBLIC_API_BASE_URL=https://your-backend.railway.app/api/v1
 - **分析機能**: 統計グラフ、人気選手ランキング、年間統計
 
 ### 4. 認証機能
-- Firebase Authentication + JWT認証のハイブリッド方式
+- Spring Boot + JWT認証
 - ユーザー登録時にrole自動付与
 - ログイン状態の永続化（localStorage）
 - セキュアなトークン管理

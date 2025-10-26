@@ -43,10 +43,10 @@
        │ DB Connection
        │
        ▼
-┌─────────────┐      ┌─────────────┐
-│  Railway    │      │  Firebase   │
-│ (MySQL)     │      │ (Auth/Store)│
-└─────────────┘      └─────────────┘
+┌─────────────┐
+│  Railway    │
+│ (MySQL)     │
+└─────────────┘
 ```
 
 ### 技術スタック
@@ -65,8 +65,8 @@
 - Spring Security + JWT
 
 **その他**:
-- Firebase（認証、Firestore）
 - Polygon Amoy（NFT）
+- ローカルファイルストレージ
 
 ---
 
@@ -90,34 +90,19 @@
 - [ ] GitHubアカウント
 - [ ] Vercelアカウント（https://vercel.com/signup）
 - [ ] Railwayアカウント（https://railway.app/）
-- [ ] Firebaseプロジェクト
 - [ ] Reown（WalletConnect）Project ID（https://cloud.reown.com/）
 
 ### 必要な情報の収集
 
-#### 1. Firebase設定
-
-Firebase Console（https://console.firebase.google.com/）から取得：
-
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
-```
-
-#### 2. WalletConnect Project ID
+#### 1. WalletConnect設定
 
 Reown Cloud（https://cloud.reown.com/）から取得：
 
 ```
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 ```
 
-#### 3. NFTコントラクトアドレス
+#### 2. NFTコントラクトアドレス
 
 デプロイ済みのNFTコントラクトアドレス：
 
@@ -277,17 +262,6 @@ curl https://your-backend.railway.app/actuator/health
 
 「Environment Variables」で以下を設定：
 
-#### Firebase設定
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
-```
-
 #### Web3設定
 ```
 NEXT_PUBLIC_POLYGON_AMOY_RPC_URL=https://rpc-amoy.polygon.technology
@@ -310,14 +284,6 @@ NEXT_PUBLIC_API_BASE_URL=https://cheerain-backend.up.railway.app/api/v1
 3. デプロイ完了後、URLが発行される
 
 例: `https://cheerain.vercel.app`
-
-### 2-5. Firebase設定更新
-
-Firebase Console → Authentication → Settings → Authorized domains
-
-Vercelドメインを追加：
-- `cheerain.vercel.app`
-- `*.vercel.app`（プレビューデプロイ用）
 
 ---
 
@@ -473,7 +439,6 @@ ALLOWED_ORIGINS=https://cheerain.vercel.app,https://*.vercel.app
 - [ ] ビルド成功
 - [ ] デプロイ成功
 - [ ] 環境変数設定完了
-- [ ] Firebase承認済みドメイン追加
 - [ ] トップページ表示確認
 
 ### Integration
