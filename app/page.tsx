@@ -31,20 +31,12 @@ export default function Home() {
                 マイページ
               </button>
             ) : (
-              <>
-                <button
-                  onClick={() => router.push('/login')}
-                  className="px-6 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition"
-                >
-                  ログイン
-                </button>
-                <button
-                  onClick={() => router.push('/register')}
-                  className="px-6 py-2 bg-red-800 text-white rounded-lg font-semibold hover:bg-red-900 transition border-2 border-white"
-                >
-                  新規登録
-                </button>
-              </>
+              <button
+                onClick={() => router.push('/login')}
+                className="px-6 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition"
+              >
+                ログイン
+              </button>
             )}
           </div>
         </div>
@@ -116,28 +108,6 @@ export default function Home() {
           </div>
         </div>
       </main>
-
-      {/* フッター */}
-      <footer className="bg-gray-800 text-white py-8 mt-16">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-gray-400">
-            © 2025 CHEERAIN - チーム糸島
-          </p>
-          <div className="mt-4 flex justify-center gap-6">
-            <Link href="/matches" className="text-gray-400 hover:text-white transition">
-              試合結果
-            </Link>
-            <span className="text-gray-600">|</span>
-            <Link href="/login" className="text-gray-400 hover:text-white transition">
-              ログイン
-            </Link>
-            <span className="text-gray-600">|</span>
-            <Link href="/register" className="text-gray-400 hover:text-white transition">
-              新規登録
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
