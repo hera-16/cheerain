@@ -18,18 +18,17 @@ CheeRainは、ファンが送った応援コメントをブロックチェーン
 - **ウォレット接続**: MetaMask/WalletConnectでWeb3ウォレット接続
 - **NFTコレクション**: 自分が発行したNFTを一覧で確認
 - **ポイントシステム**: NFT発行・会場来場でポイント獲得
-- **人気投票機能**: 応援数に基づいて人気選手をランキング表示
-- **QRコード発行**: NFTをQRコードで共有可能
-- **会場来場特典**: 会場コード入力で追加ポイント獲得
+- **人気投票機能**: 応援数に基づいて人気選手をランキング表示（管理者画面に）
+- **会場来場特典**: 会場コード入力可能
 
 #### 管理者向け機能
 - **Admin管理画面**: ユーザー・NFT・分析データの一元管理
 - **ユーザー管理**: 一覧表示・検索・role変更・詳細表示
 - **NFT管理**: 発行済みNFTの一覧・削除・統計
-- **試合管理**: 試合結果の自動取得・管理
-- **会場コード管理**: 会場コードの発行・検証・無効化
+- **試合管理**: 試合結果の取得・管理
+- **会場コード管理**: 会場コードの発行・検証・自動無効化
 - **分析機能**: 統計グラフ、人気選手ランキング、年間統計
-- **選手データ管理**: 選手情報の自動取得・更新
+- **選手データ管理**: 選手情報の取得・更新
 
 #### 技術的特徴
 - **フルスタック構成**: Next.js + Spring Boot + MySQL
@@ -187,14 +186,6 @@ cp .env.example .env.local
 # Backend API
 NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
 
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
 # WalletConnect (ブロックチェーンNFT発行用)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 
@@ -222,15 +213,6 @@ mysql -u root -p cheerain < backend/update_players.sql
 - フロントエンド: http://localhost:3000
 - バックエンドAPI: http://localhost:8080
 - phpMyAdmin: http://localhost:8081 (Docker使用時)
-
----
-
-### Firebase初期設定
-
-1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成
-2. **Authentication** を有効化:
-   - メール/パスワード認証を有効にする
-3. プロジェクト設定から各種キーを取得し、`.env.local` に設定
 
 ---
 
@@ -445,19 +427,6 @@ cheerain/
 
 ---
 
-## 🔐 Admin権限の設定
-
-Admin管理画面にアクセスするには、Firestoreで以下の手順を実行してください：
-
-1. Firebase Consoleを開く
-2. Firestore Databaseで該当ユーザーを探す
-3. `users`コレクションの対象ユーザードキュメントを編集
-4. `role`フィールドを`admin`に設定
-
-詳細は [`scripts/setAdminRole.md`](scripts/setAdminRole.md) を参照してください。
-
----
-
 ## 🌐 デプロイ
 
 本番環境へのデプロイには、フロントエンドとバックエンドを別々にデプロイする必要があります。
@@ -606,18 +575,6 @@ cors.allowed-origins=https://your-vercel-app.vercel.app
 
 ### フロントエンド（.env.local）
 
-| 変数名 | 説明 | 必須 |
-|--------|------|------|
-| `NEXT_PUBLIC_API_URL` | バックエンドAPIのベースURL | ✅ |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase APIキー | ✅ |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase認証ドメイン | ✅ |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | FirebaseプロジェクトID | ✅ |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebaseストレージバケット | ✅ |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase Messaging送信者ID | ✅ |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | FirebaseアプリID | ✅ |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect Project ID | オプション |
-| `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` | NFTコントラクトアドレス | オプション |
-
 ### バックエンド（application.properties）
 
 | 変数名 | 説明 | デフォルト値 |
@@ -699,16 +656,7 @@ lsof -i :8080                 # Mac/Linux
 - バックエンドの `application.properties` で `cors.allowed-origins` にフロントエンドのURLが含まれているか確認
 - バックエンドが実際に起動しているか確認: `curl http://localhost:8080/api/v1/players`
 
-#### 3. Firebase Authenticationエラー
-
-**問題**: `Firebase: Error (auth/invalid-api-key)`
-
-**解決策**:
-- Firebase Consoleでプロジェクト設定を確認
-- `.env.local` の Firebase設定がすべて正しく設定されているか確認
-- Firebase Authentication が有効化されているか確認
-
-#### 4. データベース接続エラー
+#### 3. データベース接続エラー
 
 **問題**: `Communications link failure`
 
@@ -722,7 +670,7 @@ lsof -i :8080                 # Mac/Linux
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS cheerain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-#### 5. JWT認証エラー
+#### 4. JWT認証エラー
 
 **問題**: `401 Unauthorized`
 
@@ -731,7 +679,7 @@ mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS cheerain CHARACTER SET utf8mb
 - JWTトークンが有効期限内か確認
 - ログアウト→再ログインを試す
 
-#### 6. Docker Composeが起動しない
+#### 5. Docker Composeが起動しない
 
 **問題**: `docker-compose up -d` でエラー
 
@@ -748,7 +696,7 @@ docker-compose up -d --build
 docker-compose logs -f
 ```
 
-#### 7. npm installでエラー
+#### 6. npm installでエラー
 
 **問題**: 依存関係のインストールエラー
 
@@ -780,8 +728,8 @@ npm ci
 
 このプロジェクトは2人チームで開発されました。
 
-- **チーム名**: hera-16
-- **ハッカソン**: ギラヴァンツ北九州ハッカソン
+- **チーム名**: チーム糸島
+- **ハッカソン**: ギラヴァンツ北九州ハックツハッカソン
 
 ---
 
@@ -807,10 +755,4 @@ MIT License
 
 ---
 
-## 📞 お問い合わせ
-
-質問や提案がある場合は、GitHubのIssueまたはPull Requestでお知らせください。
-
----
-
-Built with ❤️ for ギラヴァンツ北九州 by Team hera-16
+Built with ❤️ for ギラヴァンツ北九州 by チーム糸島 
