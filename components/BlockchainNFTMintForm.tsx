@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { NFTFormData } from '@/types/nft';
+import { Player } from '@/types/player';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
 import { api } from '@/lib/api';
 import { checkTextContent, checkImageBasic } from '@/lib/contentModeration';
@@ -31,11 +32,73 @@ export default function BlockchainNFTMintForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit');
   const [venueId, setVenueId] = useState<string>('');
   const [selectedDefaultImage, setSelectedDefaultImage] = useState<number | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [venueVerified, setVenueVerified] = useState<{ ok: boolean; venueName?: string | null } | null>(null);
 
   // クライアントサイドでのみレンダリングするためのフラグ
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // 選手データを取得
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        const response = await api.get<Player[]>('/players');
+        if (response.success && response.data) {
+          const activePlayers = response.data
+            .filter(p => p.isActive)
+            .sort((a, b) => a.number - b.number);
+          setPlayers(activePlayers);
+        }
+      } catch (error) {
+        console.error('選手データの取得エラー:', error);
+      } finally {
+        setLoadingPlayers(false);
+      }
+    };
+
+    fetchPlayers();
+  }, []);
+
+  // 会場IDのリアルタイム照合
+  useEffect(() => {
+    const verifyVenueCode = async () => {
+      if (venueId.length === 5) {
+        setIsVerifying(true);
+        setVenueVerified(null);
+        try {
+          const response = await api.post<{ match: boolean; venueName?: string }>('/venues/verify', { code: venueId });
+          if (response.success && response.data) {
+            if (response.data.match) {
+              setVenueVerified({ ok: true, venueName: response.data.venueName || null });
+            } else {
+              setVenueVerified({ ok: false });
+            }
+          } else {
+            setVenueVerified({ ok: false });
+          }
+        } catch (err) {
+          console.error('照合エラー', err);
+          setVenueVerified({ ok: false });
+        } finally {
+          setIsVerifying(false);
+        }
+      } else {
+        setVenueVerified(null);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (venueId.length === 5) {
+        verifyVenueCode();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [venueId]);
 
   // トランザクション成功時の処理
   useEffect(() => {
@@ -46,7 +109,7 @@ export default function BlockchainNFTMintForm() {
       setFormData({
         title: '',
         message: '',
-        playerName: '',
+        playerName: 'チームを応援',
         image: null,
       });
       setPreview('');
@@ -95,6 +158,11 @@ export default function BlockchainNFTMintForm() {
     const contractConfig = getContractConfig();
     if (!contractConfig) {
       alert('❌ NFTコントラクトが設定されていません。\n\nデプロイしてNEXT_PUBLIC_NFT_CONTRACT_ADDRESSを設定してください。');
+      return;
+    }
+
+    if (!formData.playerName || formData.playerName.trim() === '') {
+      alert('❌ 応援する選手を選択してください');
       return;
     }
 
@@ -158,6 +226,16 @@ export default function BlockchainNFTMintForm() {
       }
 
       // ブロックチェーンNFTを発行
+      console.log('Minting NFT with params:', {
+        to: address,
+        title: formData.title,
+        message: formData.message,
+        playerName: formData.playerName,
+        imageUrl,
+        paymentAmount: Math.floor(parseFloat(paymentAmount) * 100),
+        isVenueAttendee: venueId ? true : false,
+      });
+
       writeContract({
         address: contractConfig.address,
         abi: contractConfig.abi,
@@ -171,13 +249,58 @@ export default function BlockchainNFTMintForm() {
           BigInt(Math.floor(parseFloat(paymentAmount) * 100)), // paymentAmount (円を整数化)
           venueId ? true : false, // isVenueAttendee
         ],
-        gas: 350000n, // ガスリミットを明示的に設定
+        gas: 500000n, // ガスリミットを増やして安全マージンを確保
       });
 
     } catch (error: unknown) {
       console.error('Error minting NFT:', error);
-      const errorMessage = error instanceof Error ? error.message : 'NFTの発行に失敗しました';
-      alert(`❌ エラー\n\n${errorMessage}`);
+      let errorMessage = 'NFTの発行に失敗しました';
+      let shouldShowAlert = true;
+
+      if (error instanceof Error) {
+        // ユーザーがトランザクションをキャンセルした場合
+        if (
+          error.message.includes('User rejected') ||
+          error.message.includes('User denied') ||
+          error.message.includes('rejected') ||
+          error.message.includes('cancelled') ||
+          error.message.includes('canceled')
+        ) {
+          console.log('Transaction cancelled by user');
+          shouldShowAlert = false; // キャンセル時はアラートを表示しない
+          return;
+        }
+
+        // ネットワークエラー（Failed to fetch）
+        if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+          errorMessage =
+            '⚠️ ネットワークエラーが発生しました\n\n' +
+            '以下を確認してください:\n' +
+            '• インターネット接続を確認\n' +
+            '• RPCエンドポイントが正常か確認\n' +
+            '• しばらく待ってから再試行';
+        }
+        // Internal JSON-RPC error（ガス不足など）
+        else if (error.message.includes('Internal JSON-RPC error') || error.message.includes('reverted')) {
+          errorMessage = '❌ 発行エラー';
+        }
+        // insufficient funds（資金不足）
+        else if (error.message.includes('insufficient funds') || error.message.includes('insufficient balance')) {
+          errorMessage =
+            '❌ 資金不足エラー\n\n' +
+            'ウォレットに十分なテストネットMATICがありません。\n\n' +
+            'Faucetから無料で取得してください:\n' +
+            'https://faucet.polygon.technology/';
+        }
+        // その他のエラー
+        else {
+          errorMessage = `❌ エラーが発生しました\n\n${error.message}`;
+        }
+      }
+
+      if (shouldShowAlert) {
+        alert(errorMessage);
+      }
     }
   };
 
@@ -249,13 +372,54 @@ export default function BlockchainNFTMintForm() {
         {/* 応援対象選択 */}
         <div className="bg-gradient-to-r from-blue-100 to-yellow-100 p-4 rounded-xl border-4 border-yellow-500 shadow-lg">
           <label className="block text-lg font-black text-gray-900 mb-2">
-            🎯 応援対象 <span className="text-red-600">*</span>
+            ⚽ 応援する選手 <span className="text-red-600">*</span>
           </label>
-          <div className="w-full px-4 py-3 border-4 border-blue-500 bg-white rounded-lg font-black text-gray-900 text-center text-xl">
-            ⚽ チームを応援
-          </div>
+          {loadingPlayers ? (
+            <div className="w-full px-4 py-3 border-4 border-blue-500 bg-white rounded-lg font-bold text-gray-500 text-center">
+              選手データを読み込み中...
+            </div>
+          ) : (
+            <select
+              value={formData.playerName}
+              onChange={(e) => setFormData({ ...formData, playerName: e.target.value })}
+              className="w-full px-4 py-3 border-4 border-blue-500 rounded-lg focus:ring-4 focus:ring-yellow-500 focus:border-yellow-500 font-bold text-lg text-gray-900 bg-white"
+              required
+              disabled={!isConnected}
+            >
+              <option value="">選手を選択してください</option>
+              <option value="チームを応援" className="font-black text-red-700">⚽ チームを応援</option>
+              <optgroup label="🥅 ゴールキーパー (GK)">
+                {players.filter(p => p.position === 'GK').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🛡️ ディフェンダー (DF)">
+                {players.filter(p => p.position === 'DF').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="⚡ ミッドフィルダー (MF)">
+                {players.filter(p => p.position === 'MF').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="⚔️ フォワード (FW)">
+                {players.filter(p => p.position === 'FW').map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.number}. {player.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          )}
           <p className="text-sm text-gray-900 mt-2 font-bold">
-            現在はチーム全体への応援のみ選択できます
+            💡 一番上の「チームを応援」を選択すると、チーム全体への応援になります
           </p>
         </div>
 
@@ -375,25 +539,77 @@ export default function BlockchainNFTMintForm() {
           <label className="block text-lg font-black text-gray-900 mb-2">
             🏟️ 会場ID（現地参加の場合のみ）
           </label>
-          <input
-            type="text"
-            value={venueId}
-            onChange={(e) => setVenueId(e.target.value)}
-            className="w-full px-4 py-3 border-4 border-yellow-400 rounded-lg focus:ring-4 focus:ring-blue-500 focus:border-blue-500 font-black text-2xl text-center tracking-widest text-gray-900"
-            placeholder="12345"
-            maxLength={5}
-            disabled={!isConnected}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={venueId}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+                setVenueId(value);
+              }}
+              className={`w-full px-4 py-3 pr-12 border-4 rounded-lg focus:ring-4 focus:outline-none font-black text-2xl text-center tracking-widest text-gray-900 transition-all ${
+                venueId.length === 5
+                  ? venueVerified?.ok
+                    ? 'border-green-500 bg-green-50'
+                    : venueVerified?.ok === false
+                    ? 'border-red-500 bg-red-50'
+                    : 'border-yellow-400 bg-white'
+                  : 'border-yellow-400 bg-white focus:ring-blue-500 focus:border-blue-500'
+              }`}
+              placeholder="12345"
+              maxLength={5}
+              disabled={!isConnected}
+            />
+            {/* 照合状態アイコン */}
+            {venueId.length === 5 && (
+              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-2xl">
+                {isVerifying ? (
+                  <span className="animate-spin">🔄</span>
+                ) : venueVerified?.ok ? (
+                  <span className="text-green-600">✅</span>
+                ) : venueVerified?.ok === false ? (
+                  <span className="text-red-600">❌</span>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* 照合結果メッセージ */}
+          {venueId.length === 5 && venueVerified && (
+            <div className={`mt-3 p-3 rounded-lg font-bold text-sm ${
+              venueVerified.ok
+                ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                : 'bg-red-100 text-red-800 border-2 border-red-400'
+            }`}>
+              {venueVerified.ok ? (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xl">🎉</span>
+                    <span className="font-black">現地参加が認証されました！</span>
+                  </div>
+                  {venueVerified.venueName && (
+                    <div className="text-xs mt-1">会場: {venueVerified.venueName}</div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚠️</span>
+                  <span className="font-black">コードが一致しません</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <p className="text-sm text-gray-900 mt-2 font-bold">
-            スタジアムで配布された5桁の会場IDを入力してください
+            💡 5桁入力すると自動で照合します。会場にいない場合は空欄のまま発行できます
           </p>
         </div>
 
         {/* エラー表示 */}
-        {writeError && (
+        {writeError && !writeError.message.includes('User rejected') && !writeError.message.includes('User denied') && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 text-sm">
-              ❌ エラー: {writeError.message}
+              ❌ 発行エラー
             </p>
           </div>
         )}

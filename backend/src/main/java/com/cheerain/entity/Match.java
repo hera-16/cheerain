@@ -49,6 +49,9 @@ public class Match {
     @Column(length = 200)
     private String matchInfoUrl; // 試合情報URL
 
+    @Column(length = 20)
+    private String result; // 試合結果 (WIN/LOSE/DRAW/SCHEDULED)
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

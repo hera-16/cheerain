@@ -29,6 +29,44 @@ export default function NFTMintForm() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [venueVerified, setVenueVerified] = useState<{ ok: boolean; venueName?: string | null } | null>(null);
 
+  // 会場IDの即座照合（入力完了時）
+  useEffect(() => {
+    const verifyVenueCode = async () => {
+      if (venueId.length === 5) {
+        setIsVerifying(true);
+        setVenueVerified(null);
+        try {
+          const response = await api.post<{ match: boolean; venueName?: string }>('/venues/verify', { code: venueId });
+          if (response.success && response.data) {
+            if (response.data.match) {
+              setVenueVerified({ ok: true, venueName: response.data.venueName || null });
+            } else {
+              setVenueVerified({ ok: false });
+            }
+          } else {
+            setVenueVerified({ ok: false });
+          }
+        } catch (err) {
+          console.error('照合エラー', err);
+          setVenueVerified({ ok: false });
+        } finally {
+          setIsVerifying(false);
+        }
+      } else {
+        setVenueVerified(null);
+      }
+    };
+
+    // 入力完了から500ms後に照合を実行（デバウンス）
+    const timeoutId = setTimeout(() => {
+      if (venueId.length === 5) {
+        verifyVenueCode();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [venueId]);
+
   // 選手データを取得（REST APIから）
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -368,65 +406,69 @@ export default function NFTMintForm() {
             <label htmlFor="venueId" className="block text-sm font-black mb-2 text-blue-700">
               🎫 会場ID（5桁）
             </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  id="venueId"
-                  value={venueId}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 5);
-                    setVenueId(value);
-                  }}
-                  className="w-full px-4 py-3 border-3 border-blue-400 focus:border-blue-600 focus:outline-none font-black text-xl tracking-widest text-center text-gray-900 rounded-lg bg-blue-50"
-                  placeholder="12345"
-                  maxLength={5}
-                />
-                <div className="w-48">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 font-black text-red-800 border-3 border-red-600 rounded-lg shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition-all"
-                      onClick={async () => {
-                        if (!venueId || venueId.length === 0) {
-                          alert('会場IDを入力してください（5桁）');
-                          return;
-                        }
-                        setIsVerifying(true);
-                        setVenueVerified(null);
-                        try {
-                          const response = await api.post<{ match: boolean; venueName?: string }>('/venues/verify', { code: venueId });
-                          if (response.success && response.data) {
-                            if (response.data.match) {
-                              setVenueVerified({ ok: true, venueName: response.data.venueName || null });
-                              alert('コードが一致しました — 現地参加が認証されました');
-                            } else {
-                              setVenueVerified({ ok: false });
-                              alert('コードが一致しません');
-                            }
-                          } else {
-                            setVenueVerified({ ok: false });
-                            alert('コードが一致しません');
-                          }
-                        } catch (err) {
-                          console.error('照合エラー', err);
-                          alert('照合に失敗しました');
-                        } finally {
-                          setIsVerifying(false);
-                        }
-                      }}
-                    >
-                      {isVerifying ? '照合中...' : '照合'}
-                    </button>
-                  </div>
-                  {venueVerified && (
-                    <div className={`mt-2 text-sm ${venueVerified.ok ? 'text-green-700' : 'text-red-700'}`}>
-                      {venueVerified.ok ? `照合済み: ${venueVerified.venueName || '会場名なし'}` : '不一致です'}
-                    </div>
-                  )}
+            <div className="relative">
+              <input
+                type="text"
+                id="venueId"
+                value={venueId}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+                  setVenueId(value);
+                }}
+                className={`w-full px-4 py-3 pr-12 border-3 focus:outline-none font-black text-xl tracking-widest text-center text-gray-900 rounded-lg transition-all ${
+                  venueId.length === 5
+                    ? venueVerified?.ok
+                      ? 'border-green-500 bg-green-50'
+                      : venueVerified?.ok === false
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-blue-400 bg-blue-50'
+                    : 'border-blue-400 bg-blue-50 focus:border-blue-600'
+                }`}
+                placeholder="12345"
+                maxLength={5}
+              />
+              {/* 照合状態アイコン */}
+              {venueId.length === 5 && (
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-2xl">
+                  {isVerifying ? (
+                    <span className="animate-spin">🔄</span>
+                  ) : venueVerified?.ok ? (
+                    <span className="text-green-600">✅</span>
+                  ) : venueVerified?.ok === false ? (
+                    <span className="text-red-600">❌</span>
+                  ) : null}
                 </div>
+              )}
+            </div>
+
+            {/* 照合結果メッセージ */}
+            {venueId.length === 5 && venueVerified && (
+              <div className={`mt-3 p-3 rounded-lg font-bold text-sm ${
+                venueVerified.ok
+                  ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                  : 'bg-red-100 text-red-800 border-2 border-red-400'
+              }`}>
+                {venueVerified.ok ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">🎉</span>
+                      <span className="font-black">現地参加が認証されました！</span>
+                    </div>
+                    {venueVerified.venueName && (
+                      <div className="text-xs mt-1">会場: {venueVerified.venueName}</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">⚠️</span>
+                    <span className="font-black">コードが一致しません</span>
+                  </div>
+                )}
               </div>
-            <p className="text-xs text-blue-700 mt-1 font-bold bg-blue-50 p-2 rounded">
-              💡 会場にいない場合は空欄のまま発行できます
+            )}
+
+            <p className="text-xs text-blue-700 mt-2 font-bold bg-blue-50 p-2 rounded">
+              💡 5桁入力すると自動で照合します。会場にいない場合は空欄のまま発行できます
             </p>
           </div>
         </div>
