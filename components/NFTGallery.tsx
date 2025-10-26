@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { NFT } from '@/types/nft';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { api } from '@/lib/api';
 
 export default function NFTGallery() {
   const [nfts, setNfts] = useState<NFT[]>([]);
@@ -14,19 +13,18 @@ export default function NFTGallery() {
   useEffect(() => {
     const fetchNFTs = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'nfts'));
+        // REST APIから全てのNFTを取得
+        const response = await api.get<{ content: NFT[] }>('/nfts/public');
 
-        const nftList: NFT[] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-        })) as NFT[];
+        if (response.success && response.data) {
+          const nftList: NFT[] = response.data.content.map(nft => ({
+            ...nft,
+            createdAt: new Date(nft.createdAt),
+          }));
 
-        // クライアント側で日付順にソート
-        nftList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-        setNfts(nftList);
-        setFilteredNfts(nftList);
+          setNfts(nftList);
+          setFilteredNfts(nftList);
+        }
       } catch (error) {
         console.error('Error fetching NFTs:', error);
       } finally {

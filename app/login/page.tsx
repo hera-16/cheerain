@@ -3,16 +3,31 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { api } from '@/lib/api';
+
+interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    userId: string;
+    email: string;
+    role: string;
+  };
+}
+
+interface RegisterResponse {
+  id: string;
+  userId: string;
+  email: string;
+  role: string;
+  createdAt: string;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userId, setUserId] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -24,27 +39,42 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // ユーザーIDの重複チェックは省略（後で必要なら追加）
-        if (!userId.trim()) {
-          setError('ユーザーIDを入力してください');
-          setLoading(false);
-          return;
-        }
-
-        // Firebase Authenticationでアカウント作成
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-        // Firestoreにユーザー情報を保存
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
-          userId: userId.trim(),
-          email: email,
-          role: role, // 選択されたroleを保存
-          createdAt: new Date(),
+        // ユーザー登録
+        const response = await api.post<RegisterResponse>('/auth/register', {
+          email,
+          password,
+          role: isAdmin ? 'ADMIN' : 'USER',
         });
+
+        if (response.success) {
+          alert('登録が完了しました。ログインしてください。');
+          setIsSignUp(false);
+          setPassword('');
+          setIsAdmin(false);
+        }
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        // ログイン
+        const response = await api.post<LoginResponse>('/auth/login', {
+          email,
+          password,
+        });
+
+        if (response.success && response.data) {
+          // JWTトークンをlocalStorageに保存
+          localStorage.setItem('authToken', response.data.token);
+          // uidをidと同じ値で追加（マイページとの互換性のため）
+          const userWithUid = { ...response.data.user, uid: response.data.user.id };
+          localStorage.setItem('user', JSON.stringify(userWithUid));
+
+          // ページをリロードしてAuthContextを更新
+          // ロールに応じてリダイレクト
+          if (response.data.user.role?.toUpperCase() === 'ADMIN') {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/blockchain-mint';
+          }
+        }
       }
-      router.push('/mypage');
     } catch (err) {
       setError((err as Error).message || 'エラーが発生しました');
     } finally {
@@ -62,12 +92,6 @@ export default function LoginPage() {
           </Link>
           
           <nav className="flex items-center gap-2">
-            <Link
-              href="/nfts"
-              className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
-            >
-              NFT一覧
-            </Link>
             <Link
               href="/mypage"
               className="px-4 py-2 text-yellow-100 hover:text-yellow-300 transition font-bold tracking-wide"
@@ -89,43 +113,6 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {isSignUp && (
-              <>
-                <div>
-                  <label htmlFor="userId" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
-                    ユーザーID
-                  </label>
-                  <input
-                    id="userId"
-                    type="text"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    required={isSignUp}
-                    className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
-                    placeholder="user123"
-                    minLength={3}
-                  />
-                  <p className="text-xs text-gray-600 mt-1 font-medium">3文字以上で入力してください</p>
-                </div>
-
-                <div>
-                  <label htmlFor="role" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
-                    権限
-                  </label>
-                  <select
-                    id="role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
-                    className="w-full px-4 py-3 border-2 border-gray-300 focus:ring-0 focus:border-red-700 outline-none transition font-medium text-gray-900"
-                  >
-                    <option value="user">一般ユーザー</option>
-                    <option value="admin">管理者</option>
-                  </select>
-                  <p className="text-xs text-gray-600 mt-1 font-medium">デバッグ用：管理者権限が必要な場合は選択してください</p>
-                </div>
-              </>
-            )}
-
             <div>
               <label htmlFor="email" className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
                 メールアドレス
@@ -157,6 +144,43 @@ export default function LoginPage() {
               />
             </div>
 
+            {/* アカウント種別選択（新規登録時のみ表示） */}
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-2 tracking-wide">
+                  アカウント種別
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border-2 border-gray-300 cursor-pointer hover:border-red-700 transition">
+                    <input
+                      type="radio"
+                      name="accountType"
+                      checked={!isAdmin}
+                      onChange={() => setIsAdmin(false)}
+                      className="mr-3 w-4 h-4 text-red-700 focus:ring-red-700"
+                    />
+                    <div>
+                      <div className="font-bold text-gray-900">👤 一般ユーザー</div>
+                      <div className="text-xs text-gray-600">選手への応援メッセージ送信、NFT発行</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center p-3 border-2 border-gray-300 cursor-pointer hover:border-purple-700 transition">
+                    <input
+                      type="radio"
+                      name="accountType"
+                      checked={isAdmin}
+                      onChange={() => setIsAdmin(true)}
+                      className="mr-3 w-4 h-4 text-purple-700 focus:ring-purple-700"
+                    />
+                    <div>
+                      <div className="font-bold text-gray-900">👑 管理者</div>
+                      <div className="text-xs text-gray-600">システム管理、統計閲覧、ユーザー管理</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-100 border-2 border-red-700 text-red-900 px-4 py-3 text-sm font-bold">
                 {error}
@@ -177,6 +201,7 @@ export default function LoginPage() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
+                setIsAdmin(false);
               }}
               className="text-red-700 hover:text-red-900 text-sm font-bold tracking-wide underline"
             >

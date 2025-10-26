@@ -3,12 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { NFTFormData } from '@/types/nft';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { defaultImages, generateDefaultImageDataURL } from '@/lib/defaultImages';
-import { uploadImage, generateFileName } from '@/lib/uploadImage';
 import { Player } from '@/types/player';
+import { api } from '@/lib/api';
 
 type PaymentMethod = 'credit' | 'paypay' | 'aupay';
 
@@ -28,26 +26,59 @@ export default function NFTMintForm() {
   const [selectedDefaultImage, setSelectedDefaultImage] = useState<number | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [venueVerified, setVenueVerified] = useState<{ ok: boolean; venueName?: string | null } | null>(null);
 
-  // 選手データを取得
+  // 会場IDの即座照合（入力完了時）
+  useEffect(() => {
+    const verifyVenueCode = async () => {
+      if (venueId.length === 5) {
+        setIsVerifying(true);
+        setVenueVerified(null);
+        try {
+          const response = await api.post<{ match: boolean; venueName?: string }>('/venues/verify', { code: venueId });
+          if (response.success && response.data) {
+            if (response.data.match) {
+              setVenueVerified({ ok: true, venueName: response.data.venueName || null });
+            } else {
+              setVenueVerified({ ok: false });
+            }
+          } else {
+            setVenueVerified({ ok: false });
+          }
+        } catch (err) {
+          console.error('照合エラー', err);
+          setVenueVerified({ ok: false });
+        } finally {
+          setIsVerifying(false);
+        }
+      } else {
+        setVenueVerified(null);
+      }
+    };
+
+    // 入力完了から500ms後に照合を実行（デバウンス）
+    const timeoutId = setTimeout(() => {
+      if (venueId.length === 5) {
+        verifyVenueCode();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [venueId]);
+
+  // 選手データを取得（REST APIから）
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
-        // インデックス不要なシンプルなクエリ
-        const snapshot = await getDocs(collection(db, 'players'));
-        const playersList = snapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate() || new Date(),
-          })) as Player[];
-
-        // クライアント側でフィルタとソート
-        const activePlayers = playersList
-          .filter(p => p.isActive)
-          .sort((a, b) => a.number - b.number);
-
-        setPlayers(activePlayers);
+        const response = await api.get<Player[]>('/players');
+        if (response.success && response.data) {
+          // アクティブな選手のみフィルタして番号順にソート
+          const activePlayers = response.data
+            .filter(p => p.isActive)
+            .sort((a, b) => a.number - b.number);
+          setPlayers(activePlayers);
+        }
       } catch (error) {
         console.error('選手データの取得エラー:', error);
       } finally {
@@ -107,30 +138,34 @@ export default function NFTMintForm() {
         // デフォルト画像が選択されている場合（Base64のまま保存）
         imageUrl = generateDefaultImageDataURL(selectedDefaultImage);
       } else if (formData.image) {
-        // 自前の画像がアップロードされている場合 → Firebase Storageにアップロード
-        const fileName = generateFileName(formData.image.name);
-        const storagePath = `nfts/${user.uid}/${fileName}`;
-        imageUrl = await uploadImage(formData.image, storagePath);
+        // 自前の画像がアップロードされている場合 → Java APIにアップロード
+        const formDataObj = new FormData();
+        formDataObj.append('file', formData.image);
+        formDataObj.append('type', 'nft');
+
+        const uploadResponse = await api.uploadFile('/upload/image', formDataObj);
+        if (uploadResponse.success && uploadResponse.data) {
+          imageUrl = uploadResponse.data.url;
+        } else {
+          throw new Error('画像のアップロードに失敗しました');
+        }
       }
 
-      // Firestoreに応援メッセージNFTデータを保存
-      await addDoc(collection(db, 'nfts'), {
+      // REST APIを使用してNFTを発行
+      const response = await api.post('/nfts', {
         title: formData.title,
         message: formData.message,
         playerName: formData.playerName,
         imageUrl: imageUrl, // Storage URLまたはBase64（デフォルト画像の場合）
-        creatorAddress: user.email,
-        creatorUid: user.uid,
-        creatorUserId: userData?.userId || '',
         paymentAmount: parseFloat(paymentAmount),
-        paymentMethod: paymentMethod,
-        venueId: venueId || null, // 会場ID（任意）
-        isVenueAttendee: venueId ? true : false, // 現地参加フラグ
-        createdAt: serverTimestamp(),
+        paymentMethod: paymentMethod.toUpperCase(), // バックエンドは大文字を要求（CREDIT、PAYPAY、AUPAY）
+        venueId: venueId || '', // 会場ID（空文字列または5桁の数字）
       });
 
-      const attendeeStatus = venueId ? '\n🏟️ 現地参加サポーター認定！' : '';
-      alert(`NFTを発行しました！\n支払金額: ¥${paymentAmount}\n支払方法: ${paymentMethod === 'credit' ? 'クレジットカード' : paymentMethod === 'paypay' ? 'PayPay' : 'auPay'}${attendeeStatus}`);
+      if (response.success) {
+        const attendeeStatus = venueId ? '\n🏟️ 現地参加サポーター認定！' : '';
+        alert(`NFTを発行しました！\n支払金額: ¥${paymentAmount}\n支払方法: ${paymentMethod === 'credit' ? 'クレジットカード' : paymentMethod === 'paypay' ? 'PayPay' : 'auPay'}${attendeeStatus}`);
+      }
 
       // フォームをリセット
       setFormData({
@@ -192,35 +227,35 @@ export default function NFTMintForm() {
   return (
     <div className="max-w-2xl mx-auto p-6">
       <div className="text-center mb-8">
-        <div className="text-6xl mb-4">💬</div>
-        <h2 className="text-4xl font-black text-red-700 mb-4 tracking-wider">応援NFTを発行する</h2>
-        <p className="text-gray-800 font-bold">
+        <div className="text-6xl mb-4">🎴</div>
+        <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 mb-4 tracking-wider">応援NFTを発行する</h2>
+        <p className="text-xl font-black text-gray-900">
           選手への応援メッセージをNFTとして永久保存しよう！
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white shadow-2xl p-8 border-4 border-red-700">
-        <div>
-          <label htmlFor="userId" className="block text-sm font-black mb-2 text-red-700">
-            ユーザーID
+      <form onSubmit={handleSubmit} className="space-y-6 bg-gradient-to-br from-red-50 via-yellow-50 to-blue-50 shadow-2xl p-8 border-4 border-red-600 rounded-lg">
+        <div className="bg-white/80 p-4 rounded-lg border-2 border-blue-400">
+          <label htmlFor="userId" className="block text-sm font-black mb-2 text-blue-700">
+            👤 ユーザーID
           </label>
           <input
             type="text"
             id="userId"
             value={userData?.userId || ''}
             disabled
-            className="w-full px-4 py-3 border-2 border-gray-300 bg-gray-100 font-bold text-gray-700 cursor-not-allowed"
+            className="w-full px-4 py-3 border-3 border-blue-300 bg-blue-50 font-bold text-gray-700 cursor-not-allowed rounded-lg"
             placeholder="ユーザーID"
           />
-          <p className="text-xs text-gray-700 mt-1 font-medium">このIDでNFTが発行されます</p>
+          <p className="text-xs text-blue-700 mt-1 font-bold">このIDでNFTが発行されます</p>
         </div>
 
-        <div>
+        <div className="bg-white/80 p-4 rounded-lg border-2 border-red-400">
           <label htmlFor="playerName" className="block text-sm font-black mb-2 text-red-700">
-            応援する選手 *
+            ⚽ 応援する選手 *
           </label>
           {loadingPlayers ? (
-            <div className="w-full px-4 py-3 border-2 border-gray-300 bg-gray-100 font-bold text-gray-500 text-center">
+            <div className="w-full px-4 py-3 border-3 border-red-300 bg-red-50 font-bold text-gray-500 text-center rounded-lg">
               選手データを読み込み中...
             </div>
           ) : (
@@ -228,7 +263,7 @@ export default function NFTMintForm() {
               id="playerName"
               value={formData.playerName}
               onChange={(e) => setFormData({ ...formData, playerName: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-gray-900"
+              className="w-full px-4 py-3 border-3 border-red-300 focus:border-red-600 focus:outline-none font-bold text-gray-900 rounded-lg bg-white"
               required
             >
               <option value="">選手を選択してください</option>
@@ -263,66 +298,66 @@ export default function NFTMintForm() {
               </optgroup>
             </select>
           )}
-          <p className="text-xs text-gray-700 mt-1 font-medium">
-            ⚽ 一番上の「チームを応援」を選択すると、チーム全体への応援になります
+          <p className="text-xs text-red-700 mt-1 font-bold bg-red-50 p-2 rounded">
+            💡 一番上の「チームを応援」を選択すると、チーム全体への応援になります
           </p>
         </div>
 
-        <div>
-          <label htmlFor="title" className="block text-sm font-black mb-2 text-red-700">
-            タイトル *
+        <div className="bg-white/80 p-4 rounded-lg border-2 border-yellow-400">
+          <label htmlFor="title" className="block text-sm font-black mb-2 text-yellow-700">
+            ✨ タイトル *
           </label>
           <input
             type="text"
             id="title"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-gray-900"
+            className="w-full px-4 py-3 border-3 border-yellow-300 focus:border-yellow-600 focus:outline-none font-bold text-gray-900 rounded-lg bg-white"
             placeholder="例: 次の試合も頑張って！"
             required
           />
         </div>
 
-        <div>
-          <label htmlFor="message" className="block text-sm font-black mb-2 text-red-700">
-            応援メッセージ *
+        <div className="bg-white/80 p-4 rounded-lg border-2 border-blue-400">
+          <label htmlFor="message" className="block text-sm font-black mb-2 text-blue-700">
+            💬 応援メッセージ *
           </label>
           <textarea
             id="message"
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
             rows={5}
-            className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-gray-900"
+            className="w-full px-4 py-3 border-3 border-blue-300 focus:border-blue-600 focus:outline-none font-bold text-gray-900 rounded-lg bg-white"
             placeholder="選手への応援メッセージを書いてください..."
             required
           />
         </div>
 
-        <div>
+        <div className="bg-white/80 p-4 rounded-lg border-2 border-red-400">
           <label className="block text-sm font-black mb-2 text-red-700">
-            画像（オプション）
+            🎨 画像（オプション）
           </label>
 
           {/* デフォルト画像選択 */}
-          <div className="mb-4">
-            <p className="text-xs font-bold text-gray-700 mb-2">⚽ デフォルト画像から選択:</p>
+          <div className="mb-4 bg-gradient-to-r from-yellow-50 to-red-50 p-3 rounded-lg">
+            <p className="text-xs font-black text-red-700 mb-2">⚽ デフォルト画像から選択:</p>
             <div className="grid grid-cols-5 gap-2">
               {defaultImages.map((img) => (
                 <button
                   key={img.id}
                   type="button"
                   onClick={() => handleDefaultImageSelect(img.id)}
-                  className={`aspect-square border-4 transition-all hover:scale-105 ${
+                  className={`aspect-square border-4 rounded-lg transition-all hover:scale-105 ${
                     selectedDefaultImage === img.id
-                      ? 'border-red-700 shadow-lg'
-                      : 'border-gray-300 hover:border-yellow-400'
+                      ? 'border-red-600 shadow-xl ring-4 ring-yellow-300'
+                      : 'border-gray-300 hover:border-yellow-500'
                   }`}
                   title={img.name}
                 >
                   <img
                     src={generateDefaultImageDataURL(img.id)}
                     alt={img.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded"
                   />
                 </button>
               ))}
@@ -330,117 +365,166 @@ export default function NFTMintForm() {
           </div>
 
           {/* カスタム画像アップロード */}
-          <div>
-            <p className="text-xs font-bold text-gray-700 mb-2">📁 または独自の画像をアップロード:</p>
+          <div className="bg-gradient-to-r from-blue-50 to-yellow-50 p-3 rounded-lg">
+            <p className="text-xs font-black text-blue-700 mb-2">📁 または独自の画像をアップロード:</p>
             <input
               type="file"
               id="image"
               accept="image/*"
               onChange={handleImageChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none"
+              className="w-full px-4 py-3 border-3 border-blue-300 focus:border-blue-600 focus:outline-none rounded-lg bg-white font-medium"
             />
           </div>
 
           {/* プレビュー */}
           {preview && (
-            <div className="mt-4">
-              <p className="text-xs font-bold text-gray-700 mb-2">プレビュー:</p>
+            <div className="mt-4 bg-gradient-to-br from-yellow-50 to-red-50 p-3 rounded-lg">
+              <p className="text-xs font-black text-yellow-700 mb-2">✨ プレビュー:</p>
               <img
                 src={preview}
                 alt="Preview"
-                className="max-w-full h-auto border-4 border-yellow-400"
+                className="max-w-full h-auto border-4 border-yellow-500 rounded-lg shadow-lg"
               />
             </div>
           )}
         </div>
 
         {/* 会場IDセクション */}
-        <div className="border-t-4 border-yellow-400 pt-6 mt-6">
-          <h3 className="text-xl font-black text-red-700 mb-4 tracking-wider">🏟️ 会場ID（オプション）</h3>
+        <div className="bg-gradient-to-r from-red-100 via-yellow-100 to-blue-100 p-6 rounded-lg border-4 border-gradient-to-r from-red-400 via-yellow-400 to-blue-400">
+          <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-yellow-600 mb-4 tracking-wider">🏟️ 会場ID（オプション）</h3>
 
-          <div className="bg-yellow-50 border-2 border-yellow-400 p-4 mb-4">
-            <p className="text-sm font-bold text-gray-900 mb-2">
+          <div className="bg-gradient-to-r from-yellow-100 to-orange-100 border-3 border-yellow-500 p-4 mb-4 rounded-lg shadow-md">
+            <p className="text-sm font-black text-red-700 mb-2">
               📍 現地参加サポーター特典
             </p>
-            <p className="text-xs text-gray-700 font-medium">
+            <p className="text-xs text-gray-900 font-bold">
               試合会場で掲示されている5桁の会場IDを入力すると、現地参加サポーターとして認定されます！
             </p>
           </div>
 
-          <div>
-            <label htmlFor="venueId" className="block text-sm font-black mb-2 text-red-700">
-              会場ID（5桁）
+          <div className="bg-white/80 p-4 rounded-lg">
+            <label htmlFor="venueId" className="block text-sm font-black mb-2 text-blue-700">
+              🎫 会場ID（5桁）
             </label>
-            <input
-              type="text"
-              id="venueId"
-              value={venueId}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 5);
-                setVenueId(value);
-              }}
-              className="w-full px-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-lg tracking-widest text-center text-gray-900"
-              placeholder="12345"
-              maxLength={5}
-            />
-            <p className="text-xs text-gray-700 mt-1 font-medium">
-              ※ 会場にいない場合は空欄のまま発行できます
+            <div className="relative">
+              <input
+                type="text"
+                id="venueId"
+                value={venueId}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+                  setVenueId(value);
+                }}
+                className={`w-full px-4 py-3 pr-12 border-3 focus:outline-none font-black text-xl tracking-widest text-center text-gray-900 rounded-lg transition-all ${
+                  venueId.length === 5
+                    ? venueVerified?.ok
+                      ? 'border-green-500 bg-green-50'
+                      : venueVerified?.ok === false
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-blue-400 bg-blue-50'
+                    : 'border-blue-400 bg-blue-50 focus:border-blue-600'
+                }`}
+                placeholder="12345"
+                maxLength={5}
+              />
+              {/* 照合状態アイコン */}
+              {venueId.length === 5 && (
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-2xl">
+                  {isVerifying ? (
+                    <span className="animate-spin">🔄</span>
+                  ) : venueVerified?.ok ? (
+                    <span className="text-green-600">✅</span>
+                  ) : venueVerified?.ok === false ? (
+                    <span className="text-red-600">❌</span>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* 照合結果メッセージ */}
+            {venueId.length === 5 && venueVerified && (
+              <div className={`mt-3 p-3 rounded-lg font-bold text-sm ${
+                venueVerified.ok
+                  ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                  : 'bg-red-100 text-red-800 border-2 border-red-400'
+              }`}>
+                {venueVerified.ok ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">🎉</span>
+                      <span className="font-black">現地参加が認証されました！</span>
+                    </div>
+                    {venueVerified.venueName && (
+                      <div className="text-xs mt-1">会場: {venueVerified.venueName}</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">⚠️</span>
+                    <span className="font-black">コードが一致しません</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs text-blue-700 mt-2 font-bold bg-blue-50 p-2 rounded">
+              💡 5桁入力すると自動で照合します。会場にいない場合は空欄のまま発行できます
             </p>
           </div>
         </div>
 
         {/* 支払い情報セクション */}
-        <div className="border-t-4 border-yellow-400 pt-6 mt-6">
-          <h3 className="text-xl font-black text-red-700 mb-4 tracking-wider">💰 支払い情報</h3>
+        <div className="bg-gradient-to-br from-yellow-100 via-red-100 to-blue-100 p-6 rounded-lg border-4 border-red-500">
+          <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-red-600 mb-4 tracking-wider">💰 支払い情報</h3>
 
-          <div className="mb-6">
+          <div className="mb-6 bg-white/80 p-4 rounded-lg">
             <label htmlFor="paymentAmount" className="block text-sm font-black mb-2 text-red-700">
-              支払金額 *
+              💵 支払金額 *
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-700 font-black text-lg">¥</span>
+              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-red-700 font-black text-2xl">¥</span>
               <input
                 type="number"
                 id="paymentAmount"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 focus:border-red-700 focus:outline-none font-bold text-lg text-gray-900"
+                className="w-full pl-12 pr-4 py-4 border-3 border-red-400 focus:border-red-600 focus:outline-none font-black text-2xl text-gray-900 rounded-lg bg-gradient-to-r from-yellow-50 to-red-50"
                 placeholder="1000"
                 min="500"
                 step="100"
                 required
               />
             </div>
-            <p className="text-xs text-gray-700 mt-1 font-medium">最低金額: 500円</p>
+            <p className="text-xs text-red-700 mt-2 font-black bg-red-50 p-2 rounded">✨ 最低金額: 500円</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-black mb-3 text-red-700">
-              支払方法 *
+          <div className="bg-white/80 p-4 rounded-lg">
+            <label className="block text-sm font-black mb-3 text-blue-700">
+              💳 支払方法 *
             </label>
             <div className="grid grid-cols-3 gap-4">
               {/* クレジットカード */}
               <button
                 type="button"
                 onClick={() => setPaymentMethod('credit')}
-                className={`p-4 border-4 transition-all ${
+                className={`p-4 border-4 rounded-xl transition-all transform hover:scale-105 ${
                   paymentMethod === 'credit'
-                    ? 'border-red-700 bg-red-50'
-                    : 'border-gray-300 bg-white hover:border-red-300'
+                    ? 'border-blue-600 bg-gradient-to-br from-blue-100 to-blue-200 shadow-xl ring-4 ring-blue-300'
+                    : 'border-blue-300 bg-white hover:border-blue-500'
                 }`}
               >
                 <div className="text-4xl mb-2">💳</div>
-                <p className="text-xs font-black text-gray-900">クレジット<br/>カード</p>
+                <p className="text-xs font-black text-blue-700">クレジット<br/>カード</p>
               </button>
 
               {/* PayPay */}
               <button
                 type="button"
                 onClick={() => setPaymentMethod('paypay')}
-                className={`p-4 border-4 transition-all ${
+                className={`p-4 border-4 rounded-xl transition-all transform hover:scale-105 ${
                   paymentMethod === 'paypay'
-                    ? 'border-red-700 bg-red-50'
-                    : 'border-gray-300 bg-white hover:border-red-300'
+                    ? 'border-red-600 bg-gradient-to-br from-red-100 to-red-200 shadow-xl ring-4 ring-red-300'
+                    : 'border-red-300 bg-white hover:border-red-500'
                 }`}
               >
                 <div className="text-4xl mb-2">📱</div>
@@ -451,10 +535,10 @@ export default function NFTMintForm() {
               <button
                 type="button"
                 onClick={() => setPaymentMethod('aupay')}
-                className={`p-4 border-4 transition-all ${
+                className={`p-4 border-4 rounded-xl transition-all transform hover:scale-105 ${
                   paymentMethod === 'aupay'
-                    ? 'border-red-700 bg-red-50'
-                    : 'border-gray-300 bg-white hover:border-red-300'
+                    ? 'border-orange-600 bg-gradient-to-br from-orange-100 to-orange-200 shadow-xl ring-4 ring-orange-300'
+                    : 'border-orange-300 bg-white hover:border-orange-500'
                 }`}
               >
                 <div className="text-4xl mb-2">📲</div>
@@ -467,9 +551,9 @@ export default function NFTMintForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-red-700 hover:bg-red-800 text-yellow-300 font-black py-4 px-6 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed border-4 border-yellow-400 tracking-wider text-lg"
+          className="w-full bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 hover:from-red-700 hover:via-yellow-600 hover:to-blue-700 text-white font-black py-5 px-6 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed border-4 border-yellow-400 tracking-wider text-xl rounded-xl shadow-2xl transform hover:scale-105"
         >
-          {isLoading ? '発行中...' : `🎴 ¥${paymentAmount || '0'}で NFTを発行する`}
+          {isLoading ? '🔄 発行中...' : `🎴 ¥${paymentAmount || '0'}で NFTを発行する`}
         </button>
       </form>
     </div>

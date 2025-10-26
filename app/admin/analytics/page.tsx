@@ -1,19 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { useAccount, useReadContract } from 'wagmi';
+import { getContractConfig } from '@/lib/contract';
+
+interface NFTMetadata {
+  title: string;
+  message: string;
+  playerName: string;
+  imageUrl: string;
+  creator: string;
+  paymentAmount: string;
+  createdAt: string;
+  isVenueAttendee: boolean;
+}
+
+interface NFTWithId {
+  tokenId: bigint;
+  metadata: NFTMetadata;
+}
 
 interface PlayerStats {
   playerName: string;
   count: number;
   totalPayment: number;
-}
-
-interface PaymentMethodStats {
-  method: string;
-  count: number;
-  total: number;
 }
 
 interface MonthlyStats {
@@ -23,118 +33,126 @@ interface MonthlyStats {
 }
 
 export default function Analytics() {
+  const { address } = useAccount();
   const [loading, setLoading] = useState(true);
-  const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
-  const [paymentStats, setPaymentStats] = useState<PaymentMethodStats[]>([]);
-  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
-  const [totalStats, setTotalStats] = useState({
-    totalNFTs: 0,
-    totalPayment: 0,
-    avgPayment: 0,
-    venueAttendees: 0,
+  const [mounted, setMounted] = useState(false);
+  const [allNFTs, setAllNFTs] = useState<NFTWithId[]>([]);
+  const contractConfig = getContractConfig();
+
+  // 総NFT発行数を取得
+  const { data: totalSupply } = useReadContract({
+    ...contractConfig,
+    functionName: 'totalSupply',
+    query: {
+      enabled: !!contractConfig,
+    },
   });
 
   useEffect(() => {
-    fetchAnalytics();
+    setMounted(true);
   }, []);
 
-  const fetchAnalytics = async () => {
-    try {
-      const nftsSnapshot = await getDocs(collection(db, 'nfts'));
-      const nfts = nftsSnapshot.docs.map(doc => doc.data());
-
-      // 選手別統計
-      const playerMap = new Map<string, { count: number; totalPayment: number }>();
-      nfts.forEach(nft => {
-        const playerName = nft.playerName;
-        const current = playerMap.get(playerName) || { count: 0, totalPayment: 0 };
-        playerMap.set(playerName, {
-          count: current.count + 1,
-          totalPayment: current.totalPayment + (nft.paymentAmount || 0),
-        });
-      });
-
-      const playerStatsData: PlayerStats[] = Array.from(playerMap.entries())
-        .map(([playerName, stats]) => ({
-          playerName,
-          count: stats.count,
-          totalPayment: stats.totalPayment,
-        }))
-        .sort((a, b) => b.count - a.count);
-
-      setPlayerStats(playerStatsData);
-
-      // 支払方法別統計
-      const paymentMap = new Map<string, { count: number; total: number }>();
-      nfts.forEach(nft => {
-        const method = nft.paymentMethod || 'unknown';
-        const current = paymentMap.get(method) || { count: 0, total: 0 };
-        paymentMap.set(method, {
-          count: current.count + 1,
-          total: current.total + (nft.paymentAmount || 0),
-        });
-      });
-
-      const paymentStatsData: PaymentMethodStats[] = Array.from(paymentMap.entries())
-        .map(([method, stats]) => ({
-          method,
-          count: stats.count,
-          total: stats.total,
-        }))
-        .sort((a, b) => b.count - a.count);
-
-      setPaymentStats(paymentStatsData);
-
-      // 月別統計（過去12ヶ月）
-      const monthlyMap = new Map<string, { count: number; payment: number }>();
-      nfts.forEach(nft => {
-        const createdAt = nft.createdAt?.toDate();
-        if (createdAt) {
-          const year = createdAt.getFullYear();
-          const month = createdAt.getMonth() + 1;
-          const monthStr = `${year}年${month}月`;
-          const current = monthlyMap.get(monthStr) || { count: 0, payment: 0 };
-          monthlyMap.set(monthStr, {
-            count: current.count + 1,
-            payment: current.payment + (nft.paymentAmount || 0),
-          });
-        }
-      });
-
-      const monthlyStatsData: MonthlyStats[] = Array.from(monthlyMap.entries())
-        .map(([month, stats]) => ({
-          month,
-          count: stats.count,
-          payment: stats.payment,
-        }))
-        .sort((a, b) => {
-          const [aYear, aMonth] = a.month.match(/\d+/g)!.map(Number);
-          const [bYear, bMonth] = b.month.match(/\d+/g)!.map(Number);
-          return aYear === bYear ? aMonth - bMonth : aYear - bYear;
-        })
-        .slice(-12); // 最新12ヶ月分
-
-      setMonthlyStats(monthlyStatsData);
-
-      // 総合統計
-      const totalPayment = nfts.reduce((sum, nft) => sum + (nft.paymentAmount || 0), 0);
-      const venueAttendees = nfts.filter(nft => nft.isVenueAttendee).length;
-
-      setTotalStats({
-        totalNFTs: nfts.length,
-        totalPayment,
-        avgPayment: nfts.length > 0 ? totalPayment / nfts.length : 0,
-        venueAttendees,
-      });
-    } catch (error) {
-      console.error('分析データ取得エラー:', error);
-      alert('分析データの取得に失敗しました');
-    } finally {
+  // 全NFTのメタデータを取得
+  useEffect(() => {
+    if (!totalSupply || totalSupply === 0n) {
       setLoading(false);
+      return;
     }
-  };
 
-  if (loading) {
+    const fetchAllNFTs = async () => {
+      setLoading(true);
+      try {
+        const tokenIds = Array.from({ length: Number(totalSupply) }, (_, i) => BigInt(i));
+
+        const nftPromises = tokenIds.map(async (tokenId) => {
+          try {
+            const response = await fetch(
+              `/api/blockchain/nft-metadata?tokenId=${tokenId.toString()}`
+            );
+
+            if (!response.ok) {
+              console.error(`Failed to fetch metadata for token ${tokenId}`);
+              return null;
+            }
+
+            const result = await response.json();
+            return {
+              tokenId,
+              metadata: result.data as NFTMetadata,
+            };
+          } catch (error) {
+            console.error(`Error fetching token ${tokenId}:`, error);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(nftPromises);
+        setAllNFTs(results.filter((nft): nft is NFTWithId => nft !== null));
+      } catch (error) {
+        console.error('Error fetching NFT metadata:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllNFTs();
+  }, [totalSupply]);
+
+  // 統計データを計算
+  const totalNFTs = allNFTs.length;
+  const totalPayment = allNFTs.reduce((sum, nft) => sum + parseFloat(nft.metadata.paymentAmount), 0);
+  const avgPayment = totalNFTs > 0 ? totalPayment / totalNFTs : 0;
+  const venueAttendees = allNFTs.filter(nft => nft.metadata.isVenueAttendee).length;
+
+  // 選手別統計
+  const playerStatsMap = new Map<string, { count: number; totalPayment: number }>();
+  allNFTs.forEach(nft => {
+    const playerName = nft.metadata.playerName;
+    const payment = parseFloat(nft.metadata.paymentAmount);
+
+    if (!playerStatsMap.has(playerName)) {
+      playerStatsMap.set(playerName, { count: 0, totalPayment: 0 });
+    }
+
+    const stats = playerStatsMap.get(playerName)!;
+    stats.count += 1;
+    stats.totalPayment += payment;
+  });
+
+  const playerStats: PlayerStats[] = Array.from(playerStatsMap.entries())
+    .map(([playerName, stats]) => ({
+      playerName,
+      count: stats.count,
+      totalPayment: stats.totalPayment,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 月別統計
+  const monthlyStatsMap = new Map<string, { count: number; payment: number }>();
+  allNFTs.forEach(nft => {
+    const date = new Date(parseInt(nft.metadata.createdAt) * 1000);
+    const month = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    const payment = parseFloat(nft.metadata.paymentAmount);
+
+    if (!monthlyStatsMap.has(month)) {
+      monthlyStatsMap.set(month, { count: 0, payment: 0 });
+    }
+
+    const stats = monthlyStatsMap.get(month)!;
+    stats.count += 1;
+    stats.payment += payment;
+  });
+
+  const monthlyStats: MonthlyStats[] = Array.from(monthlyStatsMap.entries())
+    .map(([month, stats]) => ({
+      month,
+      count: stats.count,
+      payment: stats.payment,
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-12);
+
+  if (!mounted) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
@@ -145,14 +163,16 @@ export default function Analytics() {
     );
   }
 
-  const getPaymentMethodLabel = (method: string) => {
-    switch (method) {
-      case 'credit': return 'クレジットカード';
-      case 'paypay': return 'PayPay';
-      case 'aupay': return 'auPay';
-      default: return method;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⏳</div>
+          <p className="text-xl font-black text-yellow-300">NFTデータを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -171,20 +191,20 @@ export default function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">総NFT数</p>
-          <p className="text-4xl font-black text-yellow-300">{totalStats.totalNFTs}</p>
+          <p className="text-4xl font-black text-yellow-300">{totalNFTs}</p>
         </div>
         <div className="bg-gradient-to-br from-green-600 to-green-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">総売上</p>
-          <p className="text-4xl font-black text-yellow-300">¥{totalStats.totalPayment.toLocaleString()}</p>
+          <p className="text-4xl font-black text-yellow-300">¥{Math.round(totalPayment).toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">平均単価</p>
-          <p className="text-4xl font-black text-yellow-300">¥{Math.round(totalStats.avgPayment).toLocaleString()}</p>
+          <p className="text-4xl font-black text-yellow-300">¥{Math.round(avgPayment).toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-br from-orange-600 to-orange-800 p-6 border-4 border-yellow-400 text-center">
           <p className="text-sm text-yellow-200 font-bold mb-2">現地参加率</p>
           <p className="text-4xl font-black text-yellow-300">
-            {totalStats.totalNFTs > 0 ? Math.round((totalStats.venueAttendees / totalStats.totalNFTs) * 100) : 0}%
+            {totalNFTs > 0 ? Math.round((venueAttendees / totalNFTs) * 100) : 0}%
           </p>
         </div>
       </div>
@@ -196,64 +216,69 @@ export default function Analytics() {
             ⚽ 選手別応援ランキング
           </h2>
           <div className="space-y-4">
-            {playerStats.slice(0, 10).map((player, index) => (
-              <div
-                key={player.playerName}
-                className="flex items-center justify-between bg-gray-700 p-4 border-2 border-gray-600"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl font-black text-yellow-300">#{index + 1}</span>
-                  <div>
-                    <p className="font-black text-yellow-300 text-lg">{player.playerName}</p>
-                    <p className="text-sm text-gray-400 font-medium">
-                      {player.count}件 / ¥{player.totalPayment.toLocaleString()}
-                    </p>
+            {playerStats.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400 font-bold">まだデータがありません</p>
+              </div>
+            ) : (
+              playerStats.slice(0, 10).map((player: PlayerStats, index: number) => (
+                <div
+                  key={player.playerName}
+                  className="flex items-center justify-between bg-gray-700 p-4 border-2 border-gray-600"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl font-black text-yellow-300">#{index + 1}</span>
+                    <div>
+                      <p className="font-black text-yellow-300 text-lg">{player.playerName}</p>
+                      <p className="text-sm text-gray-400 font-medium">
+                        {player.count}件 / ¥{Math.round(player.totalPayment).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div
+                      className="bg-red-600 h-6"
+                      style={{
+                        width: `${Math.max(50, (player.count / playerStats[0].count) * 200)}px`,
+                      }}
+                    ></div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div
-                    className="bg-red-600 h-6"
-                    style={{
-                      width: `${Math.max(50, (player.count / playerStats[0].count) * 200)}px`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
-        {/* 支払方法別統計 */}
+        {/* 現地参加統計 */}
         <div className="bg-gray-800 p-8 shadow-2xl border-4 border-red-600">
           <h2 className="text-3xl font-black text-yellow-300 mb-6 tracking-wider">
-            💳 支払方法別統計
+            🏟️ 現地参加統計
           </h2>
           <div className="space-y-4">
-            {paymentStats.map((payment) => (
-              <div
-                key={payment.method}
-                className="bg-gray-700 p-6 border-2 border-gray-600"
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <p className="font-black text-yellow-300 text-xl">
-                    {getPaymentMethodLabel(payment.method)}
-                  </p>
-                  <p className="font-black text-yellow-300 text-2xl">
-                    {payment.count}件
-                  </p>
-                </div>
-                <div className="flex justify-between text-gray-400 font-medium">
-                  <span>合計金額</span>
-                  <span className="text-yellow-300 font-bold">¥{payment.total.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-gray-400 font-medium">
-                  <span>平均金額</span>
-                  <span className="text-yellow-300 font-bold">
-                    ¥{Math.round(payment.total / payment.count).toLocaleString()}
-                  </span>
-                </div>
+            <div className="bg-gray-700 p-6 border-2 border-gray-600">
+              <div className="flex justify-between items-center mb-2">
+                <p className="font-black text-yellow-300 text-xl">現地参加</p>
+                <p className="font-black text-yellow-300 text-2xl">{venueAttendees}件</p>
               </div>
-            ))}
+              <div className="flex justify-between text-gray-400 font-medium">
+                <span>参加率</span>
+                <span className="text-yellow-300 font-bold">
+                  {totalNFTs > 0 ? Math.round((venueAttendees / totalNFTs) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+            <div className="bg-gray-700 p-6 border-2 border-gray-600">
+              <div className="flex justify-between items-center mb-2">
+                <p className="font-black text-yellow-300 text-xl">オンライン</p>
+                <p className="font-black text-yellow-300 text-2xl">{totalNFTs - venueAttendees}件</p>
+              </div>
+              <div className="flex justify-between text-gray-400 font-medium">
+                <span>割合</span>
+                <span className="text-yellow-300 font-bold">
+                  {totalNFTs > 0 ? Math.round(((totalNFTs - venueAttendees) / totalNFTs) * 100) : 0}%
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -268,8 +293,8 @@ export default function Analytics() {
           <div className="space-y-2">
             {/* グラフ本体 */}
             <div className="flex items-end justify-between gap-2 h-80 bg-gray-900 p-6 border-2 border-gray-700">
-              {monthlyStats.map((monthly, index) => {
-                const maxCount = Math.max(...monthlyStats.map(m => m.count), 1);
+              {monthlyStats.map((monthly: MonthlyStats, index: number) => {
+                const maxCount = Math.max(...monthlyStats.map((m: MonthlyStats) => m.count), 1);
                 const heightPercent = (monthly.count / maxCount) * 100;
 
                 return (
@@ -283,14 +308,14 @@ export default function Analytics() {
                           height: `${Math.max(heightPercent, 5)}%`,
                           minHeight: '20px',
                         }}
-                        title={`${monthly.month}: ${monthly.count}件 / ¥${monthly.payment.toLocaleString()}`}
+                        title={`${monthly.month}: ${monthly.count}件 / ¥${Math.round(monthly.payment).toLocaleString()}`}
                       >
                         {/* ホバー時のツールチップ */}
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           <div className="bg-gray-800 text-yellow-300 text-xs font-bold px-3 py-2 border-2 border-yellow-400 whitespace-nowrap">
                             {monthly.month}<br/>
                             {monthly.count}件<br/>
-                            ¥{monthly.payment.toLocaleString()}
+                            ¥{Math.round(monthly.payment).toLocaleString()}
                           </div>
                         </div>
                       </div>
@@ -310,19 +335,19 @@ export default function Analytics() {
               <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
                 <p className="text-sm text-gray-400 font-bold mb-1">総発行数</p>
                 <p className="text-2xl font-black text-yellow-300">
-                  {monthlyStats.reduce((sum, m) => sum + m.count, 0)}件
+                  {monthlyStats.reduce((sum: number, m: MonthlyStats) => sum + m.count, 0)}件
                 </p>
               </div>
               <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
                 <p className="text-sm text-gray-400 font-bold mb-1">月平均</p>
                 <p className="text-2xl font-black text-yellow-300">
-                  {Math.round(monthlyStats.reduce((sum, m) => sum + m.count, 0) / monthlyStats.length)}件
+                  {monthlyStats.length > 0 ? Math.round(monthlyStats.reduce((sum: number, m: MonthlyStats) => sum + m.count, 0) / monthlyStats.length) : 0}件
                 </p>
               </div>
               <div className="bg-gray-700 p-4 border-2 border-gray-600 text-center">
                 <p className="text-sm text-gray-400 font-bold mb-1">最高記録</p>
                 <p className="text-2xl font-black text-yellow-300">
-                  {Math.max(...monthlyStats.map(m => m.count))}件
+                  {monthlyStats.length > 0 ? Math.max(...monthlyStats.map((m: MonthlyStats) => m.count)) : 0}件
                 </p>
               </div>
             </div>
