@@ -23,7 +23,8 @@ public class WebConfig {
                                 "http://localhost:3000",
                                 "http://localhost:3001",
                                 "http://localhost:8080",
-                                "https://*.vercel.app"
+                                "https://*.vercel.app",
+                                "https://cheerain.vercel.app"
                         )
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
