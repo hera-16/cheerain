@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 export default function Home() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -22,24 +23,69 @@ export default function Home() {
             <h1 className="text-3xl font-black tracking-wider">⚽ CHEERAIN</h1>
             <p className="text-sm text-red-100 mt-1">ギラヴァンツ北九州 応援アプリ</p>
           </div>
-          <div className="flex gap-4">
+          <nav className="hidden md:flex gap-6 items-center">
+            <Link href="/blockchain-mint" className="text-white hover:text-red-100 transition font-semibold">
+              ブロックチェーンNFT
+            </Link>
+            <Link href="/matches" className="text-white hover:text-red-100 transition font-semibold">
+              試合結果
+            </Link>
+            <Link href="/mypage" className="text-white hover:text-red-100 transition font-semibold">
+              マイページ
+            </Link>
+          </nav>
+          <div className="flex gap-4 items-center">
+            <button
+              className="md:hidden text-white"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="メニュー"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
             {isLoggedIn ? (
               <button
                 onClick={() => router.push('/mypage')}
-                className="px-6 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition"
+                className="hidden md:block px-6 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition"
               >
                 マイページ
               </button>
             ) : (
               <button
                 onClick={() => router.push('/login')}
-                className="px-6 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition"
+                className="hidden md:block px-6 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition"
               >
                 ログイン
               </button>
             )}
           </div>
         </div>
+        {/* モバイルメニュー */}
+        {mobileMenuOpen && (
+          <nav className="md:hidden bg-red-600 px-4 py-4">
+            <div className="flex flex-col gap-4">
+              <Link href="/blockchain-mint" className="text-white hover:text-red-100 transition font-semibold">
+                ブロックチェーンNFT
+              </Link>
+              <Link href="/matches" className="text-white hover:text-red-100 transition font-semibold">
+                試合結果
+              </Link>
+              <Link href="/mypage" className="text-white hover:text-red-100 transition font-semibold">
+                マイページ
+              </Link>
+              {!isLoggedIn && (
+                <Link href="/login" className="text-white hover:text-red-100 transition font-semibold">
+                  ログイン
+                </Link>
+              )}
+            </div>
+          </nav>
+        )}
       </header>
 
       {/* メインコンテンツ */}

@@ -108,9 +108,9 @@ export default function LoginPage() {
           <h2 className="text-3xl font-black text-center mb-2 text-red-700 tracking-wider">
             CHEERAIN
           </h2>
-          <p className="text-center text-gray-700 mb-8 font-bold">
+          <h1 className="text-center text-gray-700 mb-8 font-bold text-2xl">
             {isSignUp ? 'アカウント作成' : 'ログイン'}
-          </p>
+          </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
